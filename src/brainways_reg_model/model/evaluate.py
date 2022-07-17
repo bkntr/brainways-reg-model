@@ -3,9 +3,9 @@ import json
 
 import pytorch_lightning as pl
 
-from duracell.models.reg.model import BrainwaysRegModel
-from duracell.models.reg.train import BrainwaysDataModule
-from duracell.utils.config import load_config
+from brainways_reg_model.models.reg.model import BrainwaysRegModel
+from brainways_reg_model.models.reg.train import BrainwaysDataModule
+from brainways_reg_model.utils.config import load_config
 
 
 def main():

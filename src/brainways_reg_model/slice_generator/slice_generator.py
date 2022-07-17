@@ -1,13 +1,15 @@
-from typing import List, Callable, Tuple, Dict, Union
+from typing import Callable, Dict, List, Tuple, Union
 
 import numpy as np
 import torch
 from bg_atlasapi import BrainGlobeAtlas
 from torch.utils.data import Dataset
 
-from duracell.slice_generator.slice_generator_sample import SliceGeneratorSample
-from duracell.slice_generator.stages import stages_dict
-from duracell.utils.atlas.slice_atlas import slice_atlas
+from brainways_reg_model.slice_generator.slice_generator_sample import (
+    SliceGeneratorSample,
+)
+from brainways_reg_model.slice_generator.stages import stages_dict
+from brainways_reg_model.utils.slice_atlas import slice_atlas
 
 
 class SliceGenerator(Dataset):

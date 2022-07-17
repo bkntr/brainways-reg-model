@@ -5,7 +5,7 @@ from pathlib import Path
 import xmltodict
 from PIL import Image
 
-from duracell.models.reg.model import BrainwaysRegModel
+from brainways_reg_model.models.reg.model import BrainwaysRegModel
 
 
 def predict_image(path: Path, model: BrainwaysRegModel):

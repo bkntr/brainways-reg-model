@@ -1,10 +1,12 @@
 from typing import Tuple
 
-from kornia.geometry.transform.crop2d import crop_and_resize
 import kornia as K
 import torch
+from kornia.geometry.transform.crop2d import crop_and_resize
 
-from duracell.slice_generator.slice_generator_sample import SliceGeneratorSample
+from brainways_reg_model.slice_generator.slice_generator_sample import (
+    SliceGeneratorSample,
+)
 
 
 class CropMaterialArea:

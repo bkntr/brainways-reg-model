@@ -2,9 +2,10 @@ import random
 from typing import Tuple
 
 import kornia as K
-import torch
 
-from duracell.slice_generator.slice_generator_sample import SliceGeneratorSample
+from brainways_reg_model.slice_generator.slice_generator_sample import (
+    SliceGeneratorSample,
+)
 
 
 class RandomElasticDeformation:
@@ -15,17 +16,23 @@ class RandomElasticDeformation:
         params = random.choice(self.kernel_sigma_choices)
         kernel = tuple(params[:2])
         sigma = tuple(params[2:])
-        image_and_regions = torch.cat([sample.image, sample.regions])
 
-        bilinear_et = K.augmentation.RandomElasticTransform(
+        elastic_transform = K.augmentation.RandomElasticTransform(
             kernel_size=kernel, sigma=sigma, p=1.0
         )
-        nearest_et = K.augmentation.RandomElasticTransform(
-            kernel_size=kernel, sigma=sigma, p=1.0, mode="nearest"
-        )
 
-        params = bilinear_et.generate_parameters(sample.image.shape)
-        sample.image = bilinear_et.apply_transform(sample.image, params)
-        sample.regions = nearest_et.apply_transform(sample.regions, params)
-        sample.hemispheres = nearest_et.apply_transform(sample.hemispheres, params)
+        params = elastic_transform.generate_parameters(sample.image.shape)
+        sample.image = elastic_transform.apply_transform(
+            sample.image, params, flags=elastic_transform.flags
+        )
+        sample.regions = elastic_transform.apply_transform(
+            sample.regions,
+            params,
+            flags={**elastic_transform.flags, **{"mode": "nearest"}},
+        )
+        sample.hemispheres = elastic_transform.apply_transform(
+            sample.hemispheres,
+            params,
+            flags={**elastic_transform.flags, **{"mode": "nearest"}},
+        )
         return sample

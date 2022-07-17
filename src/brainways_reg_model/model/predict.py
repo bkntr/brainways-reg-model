@@ -3,15 +3,14 @@ import random
 from pathlib import Path
 from typing import Optional
 
-import PIL.Image
 import napari
 import numpy as np
+import PIL.Image
 from magicgui import magicgui
-from napari.types import ImageData
 
-from duracell.models.reg.model import BrainwaysRegModel
-from duracell.ui.utils import update_layer_contrast_limits
-from duracell.utils.image import nonzero_bounding_box, brain_mask
+from brainways_reg_model.models.reg.model import BrainwaysRegModel
+from brainways_reg_model.ui.utils import update_layer_contrast_limits
+from brainways_reg_model.utils.image import brain_mask, nonzero_bounding_box
 
 
 class RegistrationAnnotator:
@@ -158,7 +157,7 @@ def main():
     parser.add_argument("--images", default="data/real/test/images")
     args = parser.parse_args()
 
-    annotator = RegistrationAnnotator(images_root=args.images)
+    RegistrationAnnotator(images_root=args.images)
     napari.run()
 
 

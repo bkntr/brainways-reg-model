@@ -2,8 +2,10 @@ from typing import Tuple
 
 from kornia.geometry.transform import resize
 
-from duracell.slice_generator.slice_generator_sample import SliceGeneratorSample
-from duracell.utils.config import load_config
+from brainways_reg_model.slice_generator.slice_generator_sample import (
+    SliceGeneratorSample,
+)
+from brainways_reg_model.utils.config import load_config
 
 
 class Resize:

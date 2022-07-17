@@ -6,10 +6,12 @@ from pathlib import Path
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-from duracell.dataset import BrainwaysDataModule
-from duracell.models.reg.model import BrainwaysRegModel
-from duracell.utils.config import load_config
-from duracell.utils.training.milestones_finetuning import MilestonesFinetuning
+from brainways_reg_model.dataset import BrainwaysDataModule
+from brainways_reg_model.models.reg.model import BrainwaysRegModel
+from brainways_reg_model.utils.config import load_config
+from brainways_reg_model.utils.training.milestones_finetuning import (
+    MilestonesFinetuning,
+)
 
 log = logging.getLogger(__name__)
 

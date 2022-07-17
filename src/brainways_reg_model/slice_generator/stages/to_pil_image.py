@@ -2,7 +2,9 @@ import kornia as K
 import numpy as np
 from PIL import Image
 
-from duracell.slice_generator.slice_generator_sample import SliceGeneratorSample
+from brainways_reg_model.slice_generator.slice_generator_sample import (
+    SliceGeneratorSample,
+)
 
 
 class ToPILImage:

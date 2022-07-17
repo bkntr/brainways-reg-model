@@ -1,16 +1,17 @@
-"""Console script for brainways_reg_model."""
-import sys
 import click
 
+from brainways_reg_model.cli.prepare_synth_data import prepare_synth_data
+from brainways_reg_model.model.train import train
 
-@click.command()
-def main(args=None):
-    """Console script for brainways_reg_model."""
-    click.echo("Replace this message by putting your code into "
-               "brainways_reg_model.cli.main")
-    click.echo("See click documentation at https://click.palletsprojects.com/")
-    return 0
+
+@click.group()
+def cli():
+    pass
+
+
+cli.add_command(prepare_synth_data, name="prepare-synth-data")
+cli.add_command(train, name="train")
 
 
 if __name__ == "__main__":
-    sys.exit(main())  # pragma: no cover
+    cli()

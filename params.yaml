@@ -1,0 +1,86 @@
+default:
+  seed: 1234
+  model:
+    backbone: resnet50
+    outputs: [ ap, hemisphere ]
+  data:
+    atlas:
+      name: whs_sd_rat_39um
+      brainglobe: true
+      exclude_regions: [ 76, 42, 41 ]
+    image_size: [ 128, 128 ]
+    batch_size: 32
+    label_params:
+      ap:
+        n_classes: 512
+        limits: [ 122, 799 ]
+      rot_frontal:
+        n_classes: 10
+        limits: [ -15, 15 ]
+      rot_horizontal:
+        n_classes: 7
+        limits: [ -7, 7 ]
+      rot_sagittal:
+        n_classes: 7
+        limits: [ -7, 7 ]
+      hemisphere:
+        n_classes: 3
+        label_names: [ both, right, left ]
+  opt:
+    train_bn: true
+    milestones: [ 5, 10 ]
+    lr: 0.001
+    lr_scheduler_gamma: 0.5
+    weight_decay: 0.0001
+    max_epochs: 25
+    monitor:
+      metric: val_ap_acc_10
+      mode: max
+    train_confidence: false
+
+reg: {}
+
+segm:
+  data:
+    structures: [ ACB, PL, ACA ]
+
+finetune:
+  opt:
+    train_bn: true
+    lr: 0.001
+    lr_scheduler_gamma: 0.5
+    weight_decay: 0.001
+    milestones: [ 50, 100 ]
+    max_epochs: 120
+    monitor:
+      metric: val_ap_acc_10
+      mode: max
+    train_confidence: true
+
+synth:
+  train: 20000
+  val: 1000
+  test: 2000
+  stages:
+    - to_kornia
+    - filter_regions:
+        exclude: [ 76, 42, 41 ]
+    - crop_material_area
+    - adjust_contrast
+    - resize
+    - random_lighten_dark_areas
+    - random_zero_below_threshold:
+        threshold: [ 0, 0.6 ]
+    - random_light_deformation:
+        kernel_sigma_choices:
+          - [ 21, 21, 12, 12 ]
+          - [ 31, 31, 16, 16 ]
+          - [ 63, 63, 32, 32 ]
+    - random_affine:
+        scale: [ 0.7, 1, 0.7, 1 ]
+    - random_elastic_deformation:
+        kernel_sigma_choices:
+          - [ 21, 21, 12, 12 ]
+          - [ 31, 31, 16, 16 ]
+          - [ 63, 63, 32, 32 ]
+    - to_pil_image

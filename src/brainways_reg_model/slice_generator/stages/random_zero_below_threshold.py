@@ -1,7 +1,9 @@
 import random
 from typing import Tuple
 
-from duracell.slice_generator.slice_generator_sample import SliceGeneratorSample
+from brainways_reg_model.slice_generator.slice_generator_sample import (
+    SliceGeneratorSample,
+)
 
 
 class RandomZeroBelowThreshold:

@@ -38,29 +38,45 @@ Note:
     See: https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html
 """
 
-import argparse
 import logging
 import shutil
 from pathlib import Path
 
+import click
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-from duracell.dataset import BrainwaysDataModule
-from duracell.models.reg.model import BrainwaysRegModel
-from duracell.utils.config import load_config
-from duracell.utils.training.milestones_finetuning import MilestonesFinetuning
+from brainways_reg_model.model.dataset import BrainwaysDataModule
+from brainways_reg_model.model.model import BrainwaysRegModel
+from brainways_reg_model.utils.config import load_config
+from brainways_reg_model.utils.milestones_finetuning import MilestonesFinetuning
+from brainways_reg_model.utils.paths import (
+    REAL_DATA_ZIP_PATH,
+    SYNTH_DATA_ZIP_PATH,
+    SYNTH_TRAINED_MODEL_ROOT,
+)
 
 log = logging.getLogger(__name__)
 
 
-def cli_main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="reg")
-    parser.add_argument("--num_workers", type=int, default=4)
-    args = parser.parse_args()
-
-    config = load_config("reg")
+@click.command()
+@click.option(
+    "--config",
+    "config_name",
+    default="reg",
+    help="Config section name.",
+    show_default=True,
+)
+@click.option(
+    "--output",
+    default=SYNTH_TRAINED_MODEL_ROOT,
+    type=Path,
+    help="Config section name.",
+    show_default=True,
+)
+@click.option("--num-workers", default=4, help="Number of data workers.")
+def train(config_name: str, output: Path, num_workers: int):
+    config = load_config(config_name)
     pl.seed_everything(config.seed, workers=True)
 
     # init model
@@ -69,12 +85,12 @@ def cli_main():
     # init data
     datamodule = BrainwaysDataModule(
         data_paths={
-            "train": "data/synth.zip",
-            "val": "data/real.zip",
-            "test": "data/real.zip",
+            "train": SYNTH_DATA_ZIP_PATH,
+            "val": REAL_DATA_ZIP_PATH,
+            "test": REAL_DATA_ZIP_PATH,
         },
         data_config=config.data,
-        num_workers=args.num_workers,
+        num_workers=num_workers,
         transform=model.transform,
         target_transform=model.target_transform,
     )
@@ -86,11 +102,9 @@ def cli_main():
         monitor=config.opt.monitor.metric, mode=config.opt.monitor.mode
     )
 
-    output_dir = Path("outputs/reg/synth")
-
     # Initialize a trainer
     trainer = pl.Trainer(
-        default_root_dir=str(output_dir),
+        default_root_dir=str(output),
         callbacks=[finetuning_callback, checkpoint_callback],
         accelerator="auto",
         max_epochs=config.opt.max_epochs,
@@ -100,9 +114,14 @@ def cli_main():
     # Train the model ⚡
     trainer.fit(model, datamodule=datamodule)
 
-    shutil.move(checkpoint_callback.best_model_path, output_dir / "model.ckpt")
-    shutil.copytree(trainer.log_dir, output_dir / "logs")
+    checkpoint_path = output / "model.ckpt"
+    logs_path = output / "logs"
+
+    Path(checkpoint_path).unlink(missing_ok=True)
+    shutil.move(checkpoint_callback.best_model_path, checkpoint_path)
+    shutil.rmtree(logs_path, ignore_errors=True)
+    shutil.copytree(trainer.log_dir, logs_path)
 
 
 if __name__ == "__main__":
-    cli_main()
+    train()

@@ -1,10 +1,11 @@
-from typing import List
+import random
 
 import numpy as np
 import torch
-import random
 
-from duracell.slice_generator.slice_generator_sample import SliceGeneratorSample
+from brainways_reg_model.slice_generator.slice_generator_sample import (
+    SliceGeneratorSample,
+)
 
 
 class RandomMaskRegions:

@@ -1,35 +1,26 @@
-import logging
 from functools import cached_property
-from typing import Dict, List, Union, Sequence
+from typing import Dict, List, Sequence, Union
 
-import numpy as np
 import pytorch_lightning as pl
-import skimage.exposure
 import torch
-from PIL import Image
 from kornia import augmentation as K
+from PIL import Image
 from pytorch_lightning.utilities import rank_zero_info
-from torch import nn, Tensor, optim
+from torch import Tensor, nn, optim
 from torch.nn import functional as F
 from torch.optim.lr_scheduler import MultiStepLR
-from torchmetrics import (
-    MetricCollection,
-    MeanAbsoluteError,
-    Accuracy,
-)
+from torchmetrics import Accuracy, MeanAbsoluteError, MetricCollection
 from torchvision import models, transforms
 
-from duracell.models.reg.approx_acc import ApproxAccuracy
-from duracell.models.reg.metric_dict_input_wrapper import MetricDictInputWrapper
-from duracell.pipeline.brainways_params import AtlasRegistrationParams
-from duracell.utils.atlas.duracell_atlas import BrainwaysAtlas
-from duracell.utils.config import BrainwaysConfig
-from duracell.utils.data import model_label_to_value
-from duracell.utils.image import convert_to_uint8
+from brainways_reg_model.model.approx_acc import ApproxAccuracy
+from brainways_reg_model.model.atlas_registration_params import AtlasRegistrationParams
+from brainways_reg_model.model.metric_dict_input_wrapper import MetricDictInputWrapper
+from brainways_reg_model.utils.config import BrainwaysConfig
+from brainways_reg_model.utils.data import model_label_to_value
 
 
 class BrainwaysRegModel(pl.LightningModule):
-    def __init__(self, config: BrainwaysConfig, atlas: BrainwaysAtlas = None) -> None:
+    def __init__(self, config: BrainwaysConfig) -> None:
         super().__init__()
         self.config = config
         self.save_hyperparameters()
@@ -38,15 +29,6 @@ class BrainwaysRegModel(pl.LightningModule):
 
         self._build_model()
         self._build_metrics()
-        self._atlas = atlas
-
-        if atlas is not None:
-            if atlas.atlas.atlas_name != self.config.data.atlas.name:
-                logging.warning(
-                    f"BrainwaysRegModel was trained with atlas "
-                    f"'{self.config.data.atlas.name}' but initialized with a different "
-                    f"atlas '{atlas.atlas.atlas_name}'"
-                )
 
     def _build_metrics(self):
         metrics = MetricCollection(
@@ -105,7 +87,9 @@ class BrainwaysRegModel(pl.LightningModule):
         confidence = x[:, -2:]
         return outputs, confidence
 
-    def predict(self, x: Union[Image.Image, Sequence[Image.Image]]):
+    def predict(
+        self, x: Union[Image.Image, Sequence[Image.Image]]
+    ) -> Union[AtlasRegistrationParams, List[AtlasRegistrationParams]]:
         if isinstance(x, Image.Image):
             x = [x]
             batch = False
@@ -114,9 +98,7 @@ class BrainwaysRegModel(pl.LightningModule):
 
         # adaptive equalization
         for i, image in enumerate(x):
-            image_eq = skimage.exposure.equalize_adapthist(np.array(image))
-            image_eq = convert_to_uint8(image_eq, normalize=False)
-            x[i] = Image.fromarray(image_eq)
+            x[i] = Image.fromarray(image)
 
         x = torch.stack([self.transform(image.convert("RGB")) for image in x]).to(
             self.device
@@ -287,12 +269,3 @@ class BrainwaysRegModel(pl.LightningModule):
             return_transform=False,
             same_on_batch=False,
         )
-
-    @property
-    def atlas(self):
-        if self._atlas is None:
-            self._atlas = BrainwaysAtlas(
-                atlas=self.config.data.atlas.name,
-                exclude_regions=self.config.data.atlas.exclude_regions,
-            )
-        return self._atlas

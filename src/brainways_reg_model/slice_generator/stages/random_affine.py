@@ -1,16 +1,19 @@
 import random
 from copy import deepcopy
-from typing import Tuple, Union, Optional
+from typing import Optional, Tuple, Union
 
 import kornia as K
 import torch
+from kornia.constants import Resample
 
-from duracell.slice_generator.slice_generator_sample import SliceGeneratorSample
+from brainways_reg_model.slice_generator.slice_generator_sample import (
+    SliceGeneratorSample,
+)
 
 
 class RandomAffine:
     """
-    Random scale input image 
+    Random scale input image
     """
 
     def __init__(
@@ -24,11 +27,11 @@ class RandomAffine:
         scale_y: Optional[Union[torch.Tensor, Tuple[float, float]]] = None,
     ):
         """
-        
-        :param degrees: 
-        :param translate: 
-        :param scale: 
-        :param shear: 
+
+        :param degrees:
+        :param translate:
+        :param scale:
+        :param shear:
         :param scale_y: additional random y scaling, on top of the scale parameter
         """
         self.random_affine = K.augmentation.RandomAffine(
@@ -38,15 +41,6 @@ class RandomAffine:
             shear=shear,
             p=1.0,
             same_on_batch=True,
-        )
-        self.random_affine_nearest = K.augmentation.RandomAffine(
-            degrees=degrees,
-            translate=translate,
-            scale=scale,
-            shear=shear,
-            p=1.0,
-            same_on_batch=True,
-            resample="nearest",
         )
         self.scale_y = scale_y
 
@@ -63,7 +57,7 @@ class RandomAffine:
         torch.zero_(params_zero_center["center"])
 
         transform = self.random_affine.compute_transformation(
-            sample.image, params_zero_center
+            sample.image, params_zero_center, flags={}
         )
         zero_center_matrix = torch.tensor(
             [
@@ -85,12 +79,21 @@ class RandomAffine:
         )
         transform = center_matrix @ transform @ zero_center_matrix
         sample.image = self.random_affine.apply_transform(
-            sample.image, params, transform
+            input=sample.image,
+            params=params,
+            flags=self.random_affine.flags,
+            transform=transform,
         )
-        sample.regions = self.random_affine_nearest.apply_transform(
-            sample.regions, params, transform
+        sample.regions = self.random_affine.apply_transform(
+            input=sample.regions,
+            params=params,
+            flags={**self.random_affine.flags, **{"resample": Resample.NEAREST}},
+            transform=transform,
         )
-        sample.hemispheres = self.random_affine_nearest.apply_transform(
-            sample.hemispheres, params, transform
+        sample.hemispheres = self.random_affine.apply_transform(
+            input=sample.hemispheres,
+            params=params,
+            flags={**self.random_affine.flags, **{"resample": Resample.NEAREST}},
+            transform=transform,
         )
         return sample

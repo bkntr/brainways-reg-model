@@ -5,7 +5,9 @@ import kornia as K
 import torch
 from kornia.filters import get_gaussian_kernel2d
 
-from duracell.slice_generator.slice_generator_sample import SliceGeneratorSample
+from brainways_reg_model.slice_generator.slice_generator_sample import (
+    SliceGeneratorSample,
+)
 
 
 class RandomLightDeformation:
