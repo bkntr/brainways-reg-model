@@ -1,16 +1,18 @@
 import argparse
 import logging
 import shutil
-from pathlib import Path
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-from brainways_reg_model.dataset import BrainwaysDataModule
-from brainways_reg_model.models.reg.model import BrainwaysRegModel
+from brainways_reg_model.model.dataset import BrainwaysDataModule
+from brainways_reg_model.model.model import BrainwaysRegModel
 from brainways_reg_model.utils.config import load_config
-from brainways_reg_model.utils.training.milestones_finetuning import (
-    MilestonesFinetuning,
+from brainways_reg_model.utils.milestones_finetuning import MilestonesFinetuning
+from brainways_reg_model.utils.paths import (
+    REAL_DATA_ZIP_PATH,
+    REAL_TRAINED_MODEL_ROOT,
+    SYNTH_TRAINED_MODEL_ROOT,
 )
 
 log = logging.getLogger(__name__)
@@ -27,15 +29,15 @@ def cli_main():
 
     # init model
     model = BrainwaysRegModel.load_from_checkpoint(
-        "outputs/reg/synth/model.ckpt", config=config
+        SYNTH_TRAINED_MODEL_ROOT / "model.ckpt", config=config
     )
 
     # init data
     datamodule = BrainwaysDataModule(
         data_paths={
-            "train": "data/real.zip",
-            "val": "data/real.zip",
-            "test": "data/real.zip",
+            "train": REAL_DATA_ZIP_PATH,
+            "val": REAL_DATA_ZIP_PATH,
+            "test": REAL_DATA_ZIP_PATH,
         },
         data_config=config.data,
         num_workers=args.num_workers,
@@ -50,7 +52,7 @@ def cli_main():
         monitor=config.opt.monitor.metric, mode=config.opt.monitor.mode
     )
 
-    output_dir = Path("outputs/reg/real")
+    output_dir = REAL_TRAINED_MODEL_ROOT
 
     # Initialize a trainer
     trainer = pl.Trainer(

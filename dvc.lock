@@ -1,0 +1,220 @@
+schema: '2.0'
+stages:
+  train:
+    cmd: python -m brainways_reg_model.model.train
+    deps:
+    - path: data/real.zip
+      md5: 27ba991686a79c051e72ffc21365a7a7
+      size: 23485852
+    - path: data/synth.zip
+      md5: 4ead3e8ac45cb79281c903ddbdbfefb1
+      size: 134341519
+    - path: src/brainways_reg_model/model/dataset.py
+      md5: 87aa7a958f54380ae068fa54c422f648
+      size: 5374
+    - path: src/brainways_reg_model/model/model.py
+      md5: d611c12a56152f9bb79d4ec847353334
+      size: 9426
+    - path: src/brainways_reg_model/model/train.py
+      md5: 5299cab999b6c220ead774442e9610d6
+      size: 4342
+    params:
+      params.yaml:
+        default:
+          seed: 1234
+          model:
+            backbone: resnet50
+            outputs:
+            - ap
+            - hemisphere
+          data:
+            atlas:
+              name: whs_sd_rat_39um
+              brainglobe: true
+              exclude_regions:
+              - 76
+              - 42
+              - 41
+            image_size:
+            - 128
+            - 128
+            batch_size: 32
+            label_params:
+              ap:
+                n_classes: 512
+                limits:
+                - 122
+                - 799
+              rot_frontal:
+                n_classes: 10
+                limits:
+                - -15
+                - 15
+              rot_horizontal:
+                n_classes: 7
+                limits:
+                - -7
+                - 7
+              rot_sagittal:
+                n_classes: 7
+                limits:
+                - -7
+                - 7
+              hemisphere:
+                n_classes: 3
+                label_names:
+                - both
+                - right
+                - left
+          opt:
+            train_bn: true
+            milestones:
+            - 5
+            - 10
+            lr: 0.001
+            lr_scheduler_gamma: 0.5
+            weight_decay: 0.0001
+            max_epochs: 25
+            monitor:
+              metric: val_ap_acc_10
+              mode: max
+            train_confidence: false
+        reg: {}
+    outs:
+    - path: trained_model/synth/logs
+      md5: c55cc789129e56731d3d628fe9d1d620.dir
+      size: 63482
+      nfiles: 2
+    - path: trained_model/synth/model.ckpt
+      md5: 1d8d7f21eeeaa825d0adb1b9e2b54826
+      size: 102745603
+  finetune:
+    cmd: python -m brainways_reg_model.model.finetune
+    deps:
+    - path: data/real.zip
+      md5: 27ba991686a79c051e72ffc21365a7a7
+      size: 23485852
+    - path: src/brainways_reg_model/model/dataset.py
+      md5: 87aa7a958f54380ae068fa54c422f648
+      size: 5374
+    - path: src/brainways_reg_model/model/finetune.py
+      md5: 33279e7a739a973703c063741305824e
+      size: 2234
+    - path: src/brainways_reg_model/model/model.py
+      md5: d611c12a56152f9bb79d4ec847353334
+      size: 9426
+    - path: trained_model/synth/model.ckpt
+      md5: 1d8d7f21eeeaa825d0adb1b9e2b54826
+      size: 102745603
+    params:
+      params.yaml:
+        default:
+          seed: 1234
+          model:
+            backbone: resnet50
+            outputs:
+            - ap
+            - hemisphere
+          data:
+            atlas:
+              name: whs_sd_rat_39um
+              brainglobe: true
+              exclude_regions:
+              - 76
+              - 42
+              - 41
+            image_size:
+            - 128
+            - 128
+            batch_size: 32
+            label_params:
+              ap:
+                n_classes: 512
+                limits:
+                - 122
+                - 799
+              rot_frontal:
+                n_classes: 10
+                limits:
+                - -15
+                - 15
+              rot_horizontal:
+                n_classes: 7
+                limits:
+                - -7
+                - 7
+              rot_sagittal:
+                n_classes: 7
+                limits:
+                - -7
+                - 7
+              hemisphere:
+                n_classes: 3
+                label_names:
+                - both
+                - right
+                - left
+          opt:
+            train_bn: true
+            milestones:
+            - 5
+            - 10
+            lr: 0.001
+            lr_scheduler_gamma: 0.5
+            weight_decay: 0.0001
+            max_epochs: 25
+            monitor:
+              metric: val_ap_acc_10
+              mode: max
+            train_confidence: false
+        finetune:
+          opt:
+            train_bn: true
+            lr: 0.001
+            lr_scheduler_gamma: 0.5
+            weight_decay: 0.001
+            milestones:
+            - 50
+            - 100
+            max_epochs: 120
+            monitor:
+              metric: val_ap_acc_10
+              mode: max
+            train_confidence: true
+        reg: {}
+    outs:
+    - path: trained_model/real/logs
+      md5: 7209176dbf89aa12de0a4d50f9ef7370.dir
+      size: 54189
+      nfiles: 2
+    - path: trained_model/real/model.ckpt
+      md5: 001372b4053ff735d5af1ed2592ff62e
+      size: 102745859
+  eval:
+    cmd: python -m brainways_reg_model.model.evaluate trained_model/synth/model.ckpt
+      trained_model/synth/scores.json
+    deps:
+    - path: src/brainways_reg_model/model/evaluate.py
+      md5: c91d71ac2f0424726abda89203d501f1
+      size: 1961
+    - path: trained_model/synth/model.ckpt
+      md5: 1d8d7f21eeeaa825d0adb1b9e2b54826
+      size: 102745603
+    outs:
+    - path: trained_model/synth/scores.json
+      md5: d072a46c3f9ae621aef2e88815d22704
+      size: 414
+  eval-finetune:
+    cmd: python -m brainways_reg_model.model.evaluate trained_model/real/model.ckpt
+      trained_model/real/scores.json
+    deps:
+    - path: src/brainways_reg_model/model/evaluate.py
+      md5: c91d71ac2f0424726abda89203d501f1
+      size: 1961
+    - path: trained_model/real/model.ckpt
+      md5: 001372b4053ff735d5af1ed2592ff62e
+      size: 102745859
+    outs:
+    - path: trained_model/real/scores.json
+      md5: 705d4168b6b5e03201fcea500078f1e5
+      size: 509

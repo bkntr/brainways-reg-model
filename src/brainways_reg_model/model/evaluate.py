@@ -3,8 +3,8 @@ import json
 
 import pytorch_lightning as pl
 
-from brainways_reg_model.models.reg.model import BrainwaysRegModel
-from brainways_reg_model.models.reg.train import BrainwaysDataModule
+from brainways_reg_model.model.model import BrainwaysRegModel
+from brainways_reg_model.model.train import BrainwaysDataModule
 from brainways_reg_model.utils.config import load_config
 
 
