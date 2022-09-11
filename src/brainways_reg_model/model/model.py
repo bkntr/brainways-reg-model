@@ -96,10 +96,6 @@ class BrainwaysRegModel(pl.LightningModule):
         else:
             batch = True
 
-        # adaptive equalization
-        for i, image in enumerate(x):
-            x[i] = Image.fromarray(image)
-
         x = torch.stack([self.transform(image.convert("RGB")) for image in x]).to(
             self.device
         )
