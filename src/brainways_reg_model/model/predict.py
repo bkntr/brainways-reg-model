@@ -6,11 +6,13 @@ from typing import Optional
 import napari
 import numpy as np
 import PIL.Image
+import torch
+from bg_atlasapi import BrainGlobeAtlas
 from magicgui import magicgui
 
-from brainways_reg_model.models.reg.model import BrainwaysRegModel
-from brainways_reg_model.ui.utils import update_layer_contrast_limits
-from brainways_reg_model.utils.image import brain_mask, nonzero_bounding_box
+from brainways_reg_model.model.model import BrainwaysRegModel
+from brainways_reg_model.utils.paths import REAL_DATA_ROOT, REAL_TRAINED_MODEL_ROOT
+from brainways_reg_model.utils.slice_atlas import slice_atlas
 
 
 class RegistrationAnnotator:
@@ -19,19 +21,23 @@ class RegistrationAnnotator:
         images_root: str,
         filter: Optional[str] = None,
     ):
-        self.image_paths = list(Path(images_root).glob(filter or "*"))
+        self.image_paths = [
+            path for path in Path(images_root).rglob(filter or "*") if path.is_file()
+        ]
         self.current_image_idx = 0
 
         self.viewer = napari.Viewer()
         self.model = BrainwaysRegModel.load_from_checkpoint(
-            "outputs/reg/real/model.ckpt"
+            REAL_TRAINED_MODEL_ROOT / "model.ckpt"
         )
         self.model.freeze()
+        self.atlas = BrainGlobeAtlas(self.model.config.data.atlas.name)
+        self.atlas_volume = torch.as_tensor(self.atlas.reference.astype(np.float32))
 
-        self._input_translate = (0, self.model.atlas.shape[2])
+        self._input_translate = (0, self.atlas.shape[2])
         self._overlay_translate = (
-            self.model.atlas.shape[1],
-            self.model.atlas.shape[2] // 2,
+            self.atlas.shape[1],
+            self.atlas.shape[2] // 2,
         )
 
         self.input_layer = self.viewer.add_image(
@@ -39,7 +45,7 @@ class RegistrationAnnotator:
             name="Input",
         )
         self.atlas_slice_layer = self.viewer.add_image(
-            np.zeros((self.model.atlas.shape[1], self.model.atlas.shape[2]), np.uint8),
+            np.zeros((self.atlas.shape[1], self.atlas.shape[2]), np.uint8),
             name="Atlas Slice",
         )
         self.input_layer.translate = self._input_translate
@@ -50,7 +56,7 @@ class RegistrationAnnotator:
             ap={
                 "label": "Anterior-Posterior",
                 "widget_type": "FloatSlider",
-                "max": self.model.atlas.shape[0] - 1,
+                "max": self.atlas.shape[0] - 1,
                 "enabled": False,
             },
             rot_horizontal={
@@ -123,7 +129,6 @@ class RegistrationAnnotator:
 
     def change_image(self):
         image = PIL.Image.open(self.image_path)
-        brain_box = nonzero_bounding_box(brain_mask(np.array(image)))
         params = self.model.predict(image)
 
         self.registration_params_widget(
@@ -133,28 +138,33 @@ class RegistrationAnnotator:
             confidence=params.confidence,
             update_widget=True,
         )
-        atlas_slice = self.model.atlas.slice(
+        atlas_slice = slice_atlas(
+            shape=self.atlas_volume.shape[1:],
+            volume=self.atlas_volume,
             ap=params.ap,
+            si=self.atlas_volume.shape[1] / 2,
+            lr=self.atlas_volume.shape[2] / 2,
+            rot_frontal=0,
             rot_horizontal=params.rot_horizontal,
-            hemisphere=params.hemisphere,
-        ).reference.numpy()
+            rot_sagittal=0,
+        ).numpy()
 
         self.input_layer.data = np.array(image)
-        update_layer_contrast_limits(self.input_layer)
+        self.input_layer.reset_contrast_limits_range()
+        self.input_layer.reset_contrast_limits()
         self.atlas_slice_layer.data = atlas_slice
-        update_layer_contrast_limits(self.atlas_slice_layer)
-        atlas_box = self.model.atlas.bounding_boxes[int(params.ap)]
-        input_scale = atlas_box[3] / brain_box[3]
+        self.atlas_slice_layer.reset_contrast_limits_range()
+        self.atlas_slice_layer.reset_contrast_limits()
+        input_scale = min(
+            atlas_slice.shape[0] / image.height, atlas_slice.shape[1] / image.width
+        )
         self.input_layer.scale = (input_scale, input_scale)
-        tx = (brain_box[0] + brain_box[0] * 0.1) * input_scale
-        ty = brain_box[1] - atlas_box[1]
-        self.atlas_slice_layer.translate = (ty, tx)
         self.viewer.reset_view()
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--images", default="data/real/test/images")
+    parser.add_argument("--images", default=REAL_DATA_ROOT / "test/images")
     args = parser.parse_args()
 
     RegistrationAnnotator(images_root=args.images)

@@ -41,7 +41,7 @@ log = logging.getLogger(__name__)
     help="Trained synth model path.",
     show_default=True,
 )
-@click.option("--num-workers", default=4, help="Number of data workers.")
+@click.option("--num-workers", default=32, help="Number of data workers.")
 def finetune(config_name: str, output: Path, synth_model: Path, num_workers: int):
     config = load_config(config_name)
     pl.seed_everything(config.seed, workers=True)

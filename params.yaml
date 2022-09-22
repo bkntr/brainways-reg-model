@@ -8,8 +8,8 @@ default:
       name: whs_sd_rat_39um
       brainglobe: true
       exclude_regions: [ 76, 42, 41 ]
-    image_size: [ 128, 128 ]
-    batch_size: 32
+    image_size: [ 256, 256 ]
+    batch_size: 128
     label_params:
       ap:
         n_classes: 512
