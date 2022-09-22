@@ -144,30 +144,24 @@ class BrainwaysRegModel(pl.LightningModule):
         # Forward pass
         y_logits, confidence = self(batch["image"])
 
-        # Compute losses
-        losses = [
-            self.loss_func(
-                input=F.log_softmax(y_logits[output_name][batch["valid"]], dim=-1),
-                target=batch[output_name][batch["valid"]],
+        # Compute losses and metrics
+        losses = {}
+        pred_values = {}
+        gt_values = {}
+        for output_name in self.config.model.outputs:
+            output_mask = batch[output_name + "_mask"]
+            losses[output_name] = self.loss_func(
+                input=F.log_softmax(y_logits[output_name][output_mask], dim=-1),
+                target=batch[output_name][output_mask],
             )
-            for output_name in y_logits
-        ]
-
-        # Compute metrics
-        pred_values = {
-            output_name: model_label_to_value(
-                label=torch.argmax(y_logits[output_name][batch["valid"]], dim=-1),
+            pred_values[output_name] = model_label_to_value(
+                label=torch.argmax(y_logits[output_name][output_mask], dim=-1),
                 label_params=self.label_params[output_name],
             )
-            for output_name in self.config.model.outputs
-        }
-        gt_values = {
-            output_name: model_label_to_value(
-                label=batch[output_name][batch["valid"]],
+            gt_values[output_name] = model_label_to_value(
+                label=batch[output_name][output_mask],
                 label_params=self.label_params[output_name],
             )
-            for output_name in self.config.model.outputs
-        }
 
         # confidence loss
         # TODO: export to function?
@@ -191,12 +185,12 @@ class BrainwaysRegModel(pl.LightningModule):
             confidence_loss = self.loss_func(
                 input=F.log_softmax(confidence, dim=-1), target=confidence_label.long()
             )
-            losses.append(confidence_loss)
+            losses["confidence"] = confidence_loss
 
         metrics_ = metrics(pred_values, gt_values)
         self.log_dict(metrics_, prog_bar=True)
 
-        loss = torch.mean(torch.stack(losses))
+        loss = torch.mean(torch.stack(list(losses.values())))
 
         if phase != "train":
             self.log(f"{phase}_loss", loss, prog_bar=True)
@@ -209,7 +203,7 @@ class BrainwaysRegModel(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         self.step(batch, batch_idx, "val", self.val_metrics)
 
-    def test_step(self, batch, batch_idx, dataloader_idx):
+    def test_step(self, batch, batch_idx):
         self.step(batch, batch_idx, "test", self.test_metrics)
 
     def configure_optimizers(self):
@@ -250,7 +244,7 @@ class BrainwaysRegModel(pl.LightningModule):
     @cached_property
     def augmentation(self):
         return K.AugmentationSequential(
-            K.ColorJitter(0.2, 0.2, 0.2),
+            # K.ColorJitter(0.2, 0.2, 0.2),
             K.RandomAffine(
                 degrees=30,
                 translate=(0.1, 0.1),
@@ -260,6 +254,9 @@ class BrainwaysRegModel(pl.LightningModule):
             # K.RandomPerspective(distortion_scale=0.5),
             K.RandomBoxBlur(p=0.2),
             K.RandomErasing(),
+            K.RandomElasticTransform(kernel_size=(63, 63), sigma=(32.0, 32.0)),
+            K.RandomElasticTransform(kernel_size=(31, 31), sigma=(16.0, 16.0)),
+            K.RandomElasticTransform(kernel_size=(21, 21), sigma=(12.0, 12.0)),
             random_apply=(1,),
             keepdim=True,
             return_transform=False,

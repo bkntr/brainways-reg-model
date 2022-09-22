@@ -5,7 +5,6 @@ from typing import Callable, Dict, Optional, Union
 
 import numpy as np
 import pandas as pd
-import torchvision.transforms.functional as F
 from bg_atlasapi import BrainGlobeAtlas
 from PIL import Image
 from pytorch_lightning import LightningDataModule
@@ -31,7 +30,7 @@ class BrainwaysDataset(Dataset):
         self.data_config = data_config
         self.label_params = self.data_config.label_params
         self.images_root = root / "images"
-        self.labels = pd.read_csv(root / "labels.csv", index_col=0)
+        self.labels = pd.read_csv(root / "labels.csv")
         ap_limits = self.label_params["ap"].limits
         if ap_limits is not None:
             self.labels = self.labels.query(f"{ap_limits[0]} <= ap <= {ap_limits[1]}")
@@ -42,38 +41,38 @@ class BrainwaysDataset(Dataset):
         self.atlas = BrainGlobeAtlas(self.metadata["atlas"])
 
     def __getitem__(self, item):
-        labels = self.labels.iloc[item]
-        image_id = self.labels.index[item]
+        current_raw_labels = self.labels.iloc[item]
+        current_raw_labels_mask = ~current_raw_labels.isna()
+        filename = current_raw_labels.filename
 
         # read label
         output_labels = {}
+        output_masks = {}
         for label_name, label_params in self.label_params.items():
-            output_labels[label_name] = value_to_model_label(
-                value=labels[label_name], label_params=label_params
-            )
-        is_valid = not labels.get("ignore", False)
+            value = current_raw_labels[label_name]
+            value_mask = bool(current_raw_labels_mask[label_name])
+            output_masks[label_name + "_mask"] = value_mask
+            if value_mask:
+                output_labels[label_name] = value_to_model_label(
+                    value=value, label_params=label_params
+                )
+            else:
+                output_labels[label_name] = 1e6
+
+        is_valid = not current_raw_labels.get("ignore", False)
 
         # read image
-        if isinstance(image_id, str):
-            image_name = image_id
-        else:
-            image_name = f"{image_id}.jpg"
-        image = Image.open(self.images_root / image_name).convert("RGB")
+        image = Image.open(self.images_root / filename).convert("RGB")
 
         # read structures
-        structures_path = self.images_root / f"{image_id}-structures.tif"
+        structures_path = self.images_root / f"{filename}-structures.tif"
         if structures_path.exists():
-            structures = Image.open(self.images_root / f"{image_id}-structures.tif")
+            structures = Image.open(self.images_root / f"{filename}-structures.tif")
             structures = structure_labels(
                 np.array(structures), self.data_config.structures, self.atlas
             )
         else:
             structures = None
-
-        # augment
-        if self.augmentation is not None:
-            # TODO: remove transform to tensor and back to pil somehow
-            image = F.to_pil_image(self.augmentation(F.to_tensor(image)[None, ...])[0])
 
         # transform
         if self.transform is not None:
@@ -83,7 +82,12 @@ class BrainwaysDataset(Dataset):
         if self.target_transform is not None and structures is not None:
             structures = self.target_transform(structures)
 
-        output = {"image": image, "valid": is_valid, **output_labels}
+        # augment
+        if self.augmentation is not None:
+            # TODO: remove transform to tensor and back to pil somehow
+            image = self.augmentation(image[None, ...])[0]
+
+        output = {"image": image, "valid": is_valid, **output_labels, **output_masks}
 
         if structures is not None:
             output["structures"] = structures

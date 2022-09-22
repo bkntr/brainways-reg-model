@@ -1,7 +1,8 @@
-import argparse
 import logging
 import shutil
+from pathlib import Path
 
+import click
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 
@@ -18,18 +19,36 @@ from brainways_reg_model.utils.paths import (
 log = logging.getLogger(__name__)
 
 
-def cli_main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", nargs="+", default=("reg", "finetune"))
-    parser.add_argument("--num_workers", type=int, default=4)
-    args = parser.parse_args()
-
-    config = load_config(args.config)
+@click.command()
+@click.option(
+    "--config",
+    "config_name",
+    default="finetune",
+    help="Config section name.",
+    show_default=True,
+)
+@click.option(
+    "--output",
+    default=REAL_TRAINED_MODEL_ROOT,
+    type=Path,
+    help="Model output path.",
+    show_default=True,
+)
+@click.option(
+    "--synth-model",
+    default=SYNTH_TRAINED_MODEL_ROOT,
+    type=Path,
+    help="Trained synth model path.",
+    show_default=True,
+)
+@click.option("--num-workers", default=4, help="Number of data workers.")
+def finetune(config_name: str, output: Path, synth_model: Path, num_workers: int):
+    config = load_config(config_name)
     pl.seed_everything(config.seed, workers=True)
 
     # init model
     model = BrainwaysRegModel.load_from_checkpoint(
-        SYNTH_TRAINED_MODEL_ROOT / "model.ckpt", config=config
+        str(synth_model / "model.ckpt"), config=config
     )
 
     # init data
@@ -40,9 +59,10 @@ def cli_main():
             "test": REAL_DATA_ZIP_PATH,
         },
         data_config=config.data,
-        num_workers=args.num_workers,
+        num_workers=num_workers,
         transform=model.transform,
         target_transform=model.target_transform,
+        augmentation=model.augmentation,
     )
 
     finetuning_callback = MilestonesFinetuning(
@@ -52,11 +72,9 @@ def cli_main():
         monitor=config.opt.monitor.metric, mode=config.opt.monitor.mode
     )
 
-    output_dir = REAL_TRAINED_MODEL_ROOT
-
     # Initialize a trainer
     trainer = pl.Trainer(
-        default_root_dir=str(output_dir),
+        default_root_dir=str(output),
         callbacks=[finetuning_callback, checkpoint_callback],
         accelerator="auto",
         max_epochs=config.opt.max_epochs,
@@ -66,9 +84,10 @@ def cli_main():
     # Train the model ⚡a
     trainer.fit(model, datamodule=datamodule)
 
-    shutil.move(checkpoint_callback.best_model_path, output_dir / "model.ckpt")
-    shutil.copytree(trainer.log_dir, output_dir / "logs")
+    output_checkpoint_path = output / "model.ckpt"
+    output_logs_path = output / "logs"
+    output_checkpoint_path.unlink(missing_ok=True)
+    shutil.rmtree(output_logs_path)
 
-
-if __name__ == "__main__":
-    cli_main()
+    shutil.move(checkpoint_callback.best_model_path, output_checkpoint_path)
+    shutil.copytree(trainer.log_dir, output_logs_path)

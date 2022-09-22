@@ -93,6 +93,7 @@ def train(config_name: str, output: Path, num_workers: int):
         num_workers=num_workers,
         transform=model.transform,
         target_transform=model.target_transform,
+        augmentation=model.augmentation,
     )
 
     finetuning_callback = MilestonesFinetuning(

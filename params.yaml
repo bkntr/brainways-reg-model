@@ -50,8 +50,8 @@ finetune:
     lr: 0.001
     lr_scheduler_gamma: 0.5
     weight_decay: 0.001
-    milestones: [ 50, 100 ]
-    max_epochs: 120
+    milestones: [ 5, 10 ]
+    max_epochs: 100
     monitor:
       metric: val_ap_acc_10
       mode: max

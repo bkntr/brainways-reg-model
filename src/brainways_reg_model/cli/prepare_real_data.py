@@ -1,17 +1,22 @@
 import shutil
-from pathlib import Path
 import tempfile
-from typing import List
+from pathlib import Path
 
+import click
 import pandas as pd
 import yaml
-from bg_atlasapi import BrainGlobeAtlas
+
+from brainways_reg_model.utils.paths import (
+    REAL_DATA_ROOT,
+    REAL_DATA_ZIP_PATH,
+    REAL_RAW_DATA_ROOT,
+)
 
 
-def prepare_real_data(
+def prepare_real_data_phase(
     phase: str,
     metadata,
-    annotations: pd.DataFrame,
+    labels: pd.DataFrame,
     output_dir: Path,
 ):
     output_dir = output_dir / phase
@@ -21,73 +26,55 @@ def prepare_real_data(
     with open(output_dir / "metadata.yaml", "w") as outfile:
         yaml.dump(metadata, outfile, default_flow_style=False)
 
-    image_paths = annotations.index
-    annotations.index = [Path(x).name for x in image_paths]
-
     # write labels
-    annotations.to_csv(output_dir / "labels.csv")
+    labels.to_csv(output_dir / "labels.csv", index=False)
 
     # write images
-    images_root_path = output_dir / "images"
-    images_root_path.mkdir()
-    for image_path in image_paths:
-        src = Path("data/annotate/images") / image_path
-        dst = images_root_path / Path(image_path).name
+    input_images_root = REAL_RAW_DATA_ROOT / "images"
+    output_images_root = output_dir / "images"
+    output_images_root.mkdir()
+    for image_path in labels.filename.to_list():
+        src = input_images_root / image_path
+        dst = output_images_root / image_path
+        dst.parent.mkdir(exist_ok=True, parents=True)
         assert src.exists()
         assert not dst.exists()
         shutil.copy(src, dst)
 
 
-def main():
+@click.command()
+def prepare_real_data():
     tmp_dir = Path(tempfile.mkdtemp())
+    labels = pd.read_csv(REAL_RAW_DATA_ROOT / "labels.csv")
+    with open(REAL_RAW_DATA_ROOT / "metadata.yaml") as fd:
+        metadata = yaml.safe_load(fd)
+    test_animal_ids = ["Dev24", "Dev25", "81-1", "Retro2", "29-2"]
+    val_animal_ids = ["Dev27", "Dev28", "Retro1", "85-2"]
+    test_labels = labels.loc[labels.animal_id.isin(test_animal_ids)]
+    val_labels = labels.loc[labels.animal_id.isin(val_animal_ids)]
+    train_labels = labels.loc[~labels.animal_id.isin(test_animal_ids + val_animal_ids)]
 
-    # write metadata
-    atlas = BrainGlobeAtlas("whs_sd_rat_39um")
-    metadata = {
-        "atlas": atlas.atlas_name,
-        "ap_size": atlas.shape[0],
-        "si_size": atlas.shape[1],
-        "lr_size": atlas.shape[2],
-    }
-
-    # write labels
-    annotations = pd.read_csv("data/annotate/omer_itz_annotations.csv", index_col=0)
-    if "image_path" in annotations.columns:
-        annotations.drop(columns="image_path", inplace=True)
-
-    animal_id = annotations.index.str.extract(r".*(Dev\d+).*", expand=False)
-    test_animal_ids = ["Dev24", "Dev25", "Dev26"]
-    val_animal_ids = ["Dev27", "Dev28"]
-    test_annotations = annotations.loc[animal_id.isin(test_animal_ids)]
-    val_annotations = annotations.loc[animal_id.isin(val_animal_ids)]
-    train_annotations = annotations.loc[
-        ~animal_id.isin(test_animal_ids + val_animal_ids)
-    ]
-
-    prepare_real_data(
+    prepare_real_data_phase(
         phase="test",
         metadata=metadata,
-        annotations=test_annotations,
+        labels=test_labels,
         output_dir=tmp_dir,
     )
 
-    prepare_real_data(
+    prepare_real_data_phase(
         phase="val",
         metadata=metadata,
-        annotations=val_annotations,
+        labels=val_labels,
         output_dir=tmp_dir,
     )
-    prepare_real_data(
+    prepare_real_data_phase(
         phase="train",
         metadata=metadata,
-        annotations=train_annotations,
+        labels=train_labels,
         output_dir=tmp_dir,
     )
 
-    Path("data/real.zip").unlink(missing_ok=True)
-    shutil.make_archive("data/real", "zip", tmp_dir)
+    Path(REAL_DATA_ZIP_PATH).unlink(missing_ok=True)
+    shutil.rmtree(REAL_DATA_ROOT)
+    shutil.make_archive(REAL_DATA_ZIP_PATH.with_suffix(""), "zip", tmp_dir)
     shutil.rmtree(str(tmp_dir))
-
-
-if __name__ == "__main__":
-    main()
