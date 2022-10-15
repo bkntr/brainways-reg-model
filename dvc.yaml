@@ -1,6 +1,6 @@
 stages:
-  train:
-    cmd: python -m brainways_reg_model.model.train
+  train-synth:
+    cmd: brainways-reg-model train --config reg --train-data data/synth.zip --output trained_model/synth
     deps:
       - data/synth.zip
       - data/real.zip
@@ -14,15 +14,15 @@ stages:
       - trained_model/synth/logs
       - trained_model/synth/model.ckpt
   eval:
-    cmd: python -m brainways_reg_model.model.evaluate trained_model/synth/model.ckpt trained_model/synth/scores.json
+    cmd: brainways-reg-model evaluate --checkpoint trained_model/synth/model.ckpt --output trained_model/synth/scores.json
     deps:
       - trained_model/synth/model.ckpt
       - src/brainways_reg_model/model/evaluate.py
     metrics:
       - trained_model/synth/scores.json:
           cache: false
-  finetune:
-    cmd: python -m brainways_reg_model.model.finetune
+  train-real:
+    cmd: brainways-reg-model train --config finetune --train-data data/real.zip --output trained_model/real --pretrained-checkpoint trained_model/synth/model.ckpt
     deps:
       - trained_model/synth/model.ckpt
       - data/real.zip
@@ -37,7 +37,7 @@ stages:
       - trained_model/real/logs
       - trained_model/real/model.ckpt
   eval-finetune:
-    cmd: python -m brainways_reg_model.model.evaluate trained_model/real/model.ckpt trained_model/real/scores.json
+    cmd: brainways-reg-model evaluate
     deps:
       - trained_model/real/model.ckpt
       - src/brainways_reg_model/model/evaluate.py

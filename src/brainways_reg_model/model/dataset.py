@@ -33,7 +33,15 @@ class BrainwaysDataset(Dataset):
         self.labels = pd.read_csv(root / "labels.csv")
         ap_limits = self.label_params["ap"].limits
         if ap_limits is not None:
-            self.labels = self.labels.query(f"{ap_limits[0]} <= ap <= {ap_limits[1]}")
+            self.labels = self.labels[
+                (
+                    self.labels.ap.isna()
+                    | (
+                        (self.labels.ap >= ap_limits[0])
+                        & (self.labels.ap <= ap_limits[1])
+                    )
+                )
+            ]
         self.augmentation = augmentation
         self.transform = transform
         self.target_transform = target_transform
@@ -57,9 +65,7 @@ class BrainwaysDataset(Dataset):
                     value=value, label_params=label_params
                 )
             else:
-                output_labels[label_name] = 1e6
-
-        is_valid = not current_raw_labels.get("ignore", False)
+                output_labels[label_name] = int(1e6)
 
         # read image
         image = Image.open(self.images_root / filename).convert("RGB")
@@ -87,7 +93,7 @@ class BrainwaysDataset(Dataset):
             # TODO: remove transform to tensor and back to pil somehow
             image = self.augmentation(image[None, ...])[0]
 
-        output = {"image": image, "valid": is_valid, **output_labels, **output_masks}
+        output = {"image": image, **output_labels, **output_masks}
 
         if structures is not None:
             output["structures"] = structures

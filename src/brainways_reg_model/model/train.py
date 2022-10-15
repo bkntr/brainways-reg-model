@@ -41,6 +41,7 @@ Note:
 import logging
 import shutil
 from pathlib import Path
+from typing import Optional
 
 import click
 import pytorch_lightning as pl
@@ -50,11 +51,7 @@ from brainways_reg_model.model.dataset import BrainwaysDataModule
 from brainways_reg_model.model.model import BrainwaysRegModel
 from brainways_reg_model.utils.config import load_config
 from brainways_reg_model.utils.milestones_finetuning import MilestonesFinetuning
-from brainways_reg_model.utils.paths import (
-    REAL_DATA_ZIP_PATH,
-    SYNTH_DATA_ZIP_PATH,
-    SYNTH_TRAINED_MODEL_ROOT,
-)
+from brainways_reg_model.utils.paths import REAL_DATA_ZIP_PATH
 
 log = logging.getLogger(__name__)
 
@@ -63,29 +60,50 @@ log = logging.getLogger(__name__)
 @click.option(
     "--config",
     "config_name",
-    default="reg",
     help="Config section name.",
-    show_default=True,
+    required=True,
+)
+@click.option(
+    "--train-data",
+    "train_data_path",
+    type=Path,
+    help="Training data path.",
+    required=True,
 )
 @click.option(
     "--output",
-    default=SYNTH_TRAINED_MODEL_ROOT,
     type=Path,
     help="Config section name.",
-    show_default=True,
+    required=True,
 )
-@click.option("--num-workers", default=4, help="Number of data workers.")
-def train(config_name: str, output: Path, num_workers: int):
+@click.option(
+    "--pretrained-checkpoint",
+    type=Path,
+    help="Pretrained model path.",
+)
+@click.option("--num-workers", default=16, help="Number of data workers.")
+def train(
+    config_name: str,
+    train_data_path: Path,
+    output: Path,
+    pretrained_checkpoint: Optional[Path],
+    num_workers: int,
+):
     config = load_config(config_name)
     pl.seed_everything(config.seed, workers=True)
 
     # init model
-    model = BrainwaysRegModel(config)
+    if pretrained_checkpoint is not None:
+        model = BrainwaysRegModel.load_from_checkpoint(
+            pretrained_checkpoint, config=config
+        )
+    else:
+        model = BrainwaysRegModel(config)
 
     # init data
     datamodule = BrainwaysDataModule(
         data_paths={
-            "train": SYNTH_DATA_ZIP_PATH,
+            "train": train_data_path,
             "val": REAL_DATA_ZIP_PATH,
             "test": REAL_DATA_ZIP_PATH,
         },

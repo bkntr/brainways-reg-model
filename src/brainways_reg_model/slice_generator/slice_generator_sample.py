@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Tuple, Optional, Union
+from typing import Optional, Tuple, Union
 
 import torch
 from PIL import Image
@@ -15,6 +15,7 @@ class SliceGeneratorSample:
     rot_sagittal: float = 0
     hemisphere: str = "both"
     scale: Tuple[float, float] = (1.0, 1.0)
+    valid: Optional[str] = None
     image: Optional[Union[torch.Tensor, Image.Image]] = None
     regions: Optional[Union[torch.Tensor, Image.Image]] = None
     hemispheres: Optional[Union[torch.Tensor, Image.Image]] = None

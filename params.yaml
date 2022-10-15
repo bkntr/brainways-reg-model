@@ -2,14 +2,14 @@ default:
   seed: 1234
   model:
     backbone: resnet50
-    outputs: [ ap, hemisphere ]
+    outputs: [ ap, hemisphere, valid ]
   data:
     atlas:
       name: whs_sd_rat_39um
       brainglobe: true
       exclude_regions: [ 76, 42, 41 ]
     image_size: [ 256, 256 ]
-    batch_size: 128
+    batch_size: 32
     label_params:
       ap:
         n_classes: 512
@@ -26,6 +26,9 @@ default:
       hemisphere:
         n_classes: 3
         label_names: [ both, right, left ]
+      valid:
+          n_classes: 2
+          label_names: [ "no", "yes" ]
   opt:
     train_bn: true
     milestones: [ 5, 10 ]

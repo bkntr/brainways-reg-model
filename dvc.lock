@@ -1,23 +1,23 @@
 schema: '2.0'
 stages:
   train:
-    cmd: python -m brainways_reg_model.model.train
+    cmd: brainways-reg-model train
     deps:
     - path: data/real.zip
-      md5: 27ba991686a79c051e72ffc21365a7a7
-      size: 23485852
+      md5: 8238c090f19acdceea62e322b026c060
+      size: 84937521
     - path: data/synth.zip
-      md5: 4ead3e8ac45cb79281c903ddbdbfefb1
-      size: 134341519
+      md5: 6318577a216c85d2fb9ed36860092172
+      size: 698700770
     - path: src/brainways_reg_model/model/dataset.py
-      md5: 87aa7a958f54380ae068fa54c422f648
-      size: 5374
+      md5: 69c8d3dbfed142fc75c98f161bcbe3cf
+      size: 5557
     - path: src/brainways_reg_model/model/model.py
-      md5: d611c12a56152f9bb79d4ec847353334
-      size: 9426
+      md5: 2bf70e5302bfb7f7281119b1f1e5011e
+      size: 9599
     - path: src/brainways_reg_model/model/train.py
-      md5: 5299cab999b6c220ead774442e9610d6
-      size: 4342
+      md5: 5b38b8fb83a45ff2d91e70a332e0c349
+      size: 4384
     params:
       params.yaml:
         default:
@@ -27,6 +27,7 @@ stages:
             outputs:
             - ap
             - hemisphere
+            - valid
           data:
             atlas:
               name: whs_sd_rat_39um
@@ -66,6 +67,11 @@ stages:
                 - both
                 - right
                 - left
+              valid:
+                n_classes: 2
+                label_names:
+                - no
+                - yes
           opt:
             train_bn: true
             milestones:
@@ -82,12 +88,12 @@ stages:
         reg: {}
     outs:
     - path: trained_model/synth/logs
-      md5: c55cc789129e56731d3d628fe9d1d620.dir
-      size: 63482
+      md5: 2b7368e207a2560237afee179c8a50da.dir
+      size: 63782
       nfiles: 2
     - path: trained_model/synth/model.ckpt
-      md5: 1d8d7f21eeeaa825d0adb1b9e2b54826
-      size: 102745603
+      md5: 47c50fd2546732b54b8874a53fe63ff4
+      size: 290350579
   finetune:
     cmd: python -m brainways_reg_model.model.finetune
     deps:
@@ -191,19 +197,19 @@ stages:
       md5: 001372b4053ff735d5af1ed2592ff62e
       size: 102745859
   eval:
-    cmd: python -m brainways_reg_model.model.evaluate trained_model/synth/model.ckpt
-      trained_model/synth/scores.json
+    cmd: brainways-reg-model evaluate --checkpoint trained_model/synth/model.ckpt
+      --output trained_model/synth/scores.json
     deps:
     - path: src/brainways_reg_model/model/evaluate.py
-      md5: c91d71ac2f0424726abda89203d501f1
-      size: 1961
+      md5: 363ae50aad5064af2339c07caa8ea9dc
+      size: 2276
     - path: trained_model/synth/model.ckpt
-      md5: 1d8d7f21eeeaa825d0adb1b9e2b54826
-      size: 102745603
+      md5: 5e41af85adda890329024de167df9290
+      size: 290350579
     outs:
     - path: trained_model/synth/scores.json
-      md5: d072a46c3f9ae621aef2e88815d22704
-      size: 414
+      md5: 182851d6474c980b763f249e0404213d
+      size: 181
   eval-finetune:
     cmd: python -m brainways_reg_model.model.evaluate trained_model/real/model.ckpt
       trained_model/real/scores.json

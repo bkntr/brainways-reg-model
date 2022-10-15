@@ -40,6 +40,7 @@ class BrainwaysRegModel(pl.LightningModule):
             }
         )
         if self.config.opt.train_confidence:
+            metrics["valid_acc"] = MetricDictInputWrapper(Accuracy(), "valid")
             metrics["confidence_acc"] = MetricDictInputWrapper(Accuracy(), "confidence")
         self.train_metrics = metrics.clone(prefix="train_")
         self.val_metrics = metrics.clone(prefix="val_")
@@ -150,6 +151,8 @@ class BrainwaysRegModel(pl.LightningModule):
         gt_values = {}
         for output_name in self.config.model.outputs:
             output_mask = batch[output_name + "_mask"]
+            if not output_mask.any():
+                continue
             losses[output_name] = self.loss_func(
                 input=F.log_softmax(y_logits[output_name][output_mask], dim=-1),
                 target=batch[output_name][output_mask],
@@ -177,7 +180,6 @@ class BrainwaysRegModel(pl.LightningModule):
                     label=batch["ap"], label_params=self.label_params["ap"]
                 ).int()
                 confidence_label = (abs(gt_ap - pred_ap) < 20).int()
-                confidence_label[~batch["valid"]] = 0
 
             pred_values["confidence"] = confidence
             gt_values["confidence"] = confidence_label
@@ -259,6 +261,5 @@ class BrainwaysRegModel(pl.LightningModule):
             K.RandomElasticTransform(kernel_size=(21, 21), sigma=(12.0, 12.0)),
             random_apply=(1,),
             keepdim=True,
-            return_transform=False,
             same_on_batch=False,
         )

@@ -61,19 +61,21 @@ def create_dataset(
     all_labels = []
     for sample_idx, sample in enumerate(tqdm(generator, desc=phase)):
         sample: SliceGeneratorSample
-        sample.image.save(images_dir / f"{sample_idx}.jpg")
+        filename = f"{sample_idx}.jpg"
+        sample.image.save(images_dir / filename)
         sample.regions.save(
             str(images_dir / f"{sample_idx}-structures.tif"), compression="tiff_lzw"
         )
 
         # save non-image parameters
         attrs = asdict(sample)
+        attrs["filename"] = filename
         del attrs["image"]
         del attrs["regions"]
         del attrs["hemispheres"]
         all_labels.append(attrs)
     all_labels = pd.DataFrame(all_labels)
-    all_labels.to_csv(str(root_dir / "labels.csv"), float_format="%.3f")
+    all_labels.to_csv(str(root_dir / "labels.csv"), float_format="%.3f", index=False)
 
     metadata = {
         "atlas": atlas.atlas_name,
