@@ -201,15 +201,15 @@ stages:
       --output trained_model/synth/scores.json
     deps:
     - path: src/brainways_reg_model/model/evaluate.py
-      md5: 7682ba49eae4ef2b5ca8c4335dd4045b
-      size: 2192
+      md5: 952b08b4ad57ee43039436a876b5b0f8
+      size: 2219
     - path: trained_model/synth/model.ckpt
       md5: 7d036263edae306be7a0fa043739a970
       size: 290348219
     outs:
     - path: trained_model/synth/scores.json
-      md5: 3c193bdf5f5387d1df6714c563ae6bdd
-      size: 180
+      md5: 5e3578328a0f928954d2b292efacf6f8
+      size: 181
   eval-finetune:
     cmd: brainways-reg-model evaluate
     deps:
@@ -221,8 +221,8 @@ stages:
       size: 290427247
     outs:
     - path: trained_model/real/scores.json
-      md5: 58ce4b7693d36b780ab065e26c78caf8
-      size: 261
+      md5: 74601acd8046493d8e85f194021d5118
+      size: 262
   train-synth:
     cmd: brainways-reg-model train --config reg --train-data data/synth.zip --output
       trained_model/synth

@@ -41,6 +41,10 @@ default:
       mode: min
     train_confidence: false
     check_val_every_n_epoch: 5
+    loss_weights:
+      ap: 1.0
+      hemisphere: 2.0
+      valid: 2.0
 
 reg: {}
 

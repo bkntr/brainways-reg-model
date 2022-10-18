@@ -33,18 +33,39 @@ class BrainwaysRegModel(pl.LightningModule):
         self._build_model()
         self._build_metrics()
 
+    def _build_metrics_base(self, postfix=""):
+        return {
+            "ap_acc_10"
+            + postfix: MetricDictInputWrapper(
+                ApproxAccuracy(tolerance=10), "ap" + postfix
+            ),
+            "ap_acc_20"
+            + postfix: MetricDictInputWrapper(
+                ApproxAccuracy(tolerance=20), "ap" + postfix
+            ),
+            "ap_mae"
+            + postfix: MetricDictInputWrapper(MeanAbsoluteError(), "ap" + postfix),
+            "hem_acc"
+            + postfix: MetricDictInputWrapper(
+                Accuracy(
+                    num_classes=self.label_params["hemisphere"].n_classes,
+                    multiclass=True,
+                ),
+                "hemisphere" + postfix,
+            ),
+        }
+
     def _build_metrics(self):
-        metrics = MetricCollection(
-            {
-                "ap_acc_10": MetricDictInputWrapper(ApproxAccuracy(tolerance=10), "ap"),
-                "ap_acc_20": MetricDictInputWrapper(ApproxAccuracy(tolerance=20), "ap"),
-                "ap_mae": MetricDictInputWrapper(MeanAbsoluteError(), "ap"),
-                "hem_acc": MetricDictInputWrapper(Accuracy(), "hemisphere"),
-            }
-        )
+        metrics = self._build_metrics_base()
         if self.config.opt.train_confidence:
+            metrics.update(self._build_metrics_base(postfix="_confident"))
             metrics["valid_acc"] = MetricDictInputWrapper(Accuracy(), "valid")
             metrics["confidence_acc"] = MetricDictInputWrapper(Accuracy(), "confidence")
+            metrics["confident_percent"] = MetricDictInputWrapper(
+                Accuracy(), "confident_percent"
+            )
+        metrics = MetricCollection(metrics)
+
         self.train_metrics = metrics.clone(prefix="train_")
         self.val_metrics = metrics.clone(prefix="val_")
         self.test_metrics = metrics.clone(prefix="test_")
@@ -149,10 +170,9 @@ class BrainwaysRegModel(pl.LightningModule):
                 image = self.augmentation(batch["image"])
             else:
                 image = self.transform(batch["image"])
-        y_logits, confidence = self(image)
+        y_logits, confidence_logits = self(image)
 
         # mask out irrelevant outputs
-        confidence = confidence[batch["ap_mask"]]
         for output_name in self.config.model.outputs:
             output_mask = batch[output_name + "_mask"]
             batch[output_name] = batch[output_name][output_mask]
@@ -165,9 +185,12 @@ class BrainwaysRegModel(pl.LightningModule):
         for output_name in self.config.model.outputs:
             if len(y_logits[output_name]) == 0:
                 continue
-            losses[output_name] = self.loss_func(
-                input=F.log_softmax(y_logits[output_name], dim=-1),
-                target=batch[output_name],
+            losses[output_name] = (
+                self.loss_func(
+                    input=F.log_softmax(y_logits[output_name], dim=-1),
+                    target=batch[output_name],
+                )
+                * self.config.opt.loss_weights[output_name]
             )
             pred_values[output_name] = model_label_to_value(
                 label=torch.argmax(y_logits[output_name], dim=-1),
@@ -178,12 +201,33 @@ class BrainwaysRegModel(pl.LightningModule):
                 label_params=self.label_params[output_name],
             )
 
-        # confidence loss
-        if len(confidence) > 0 and self.config.opt.train_confidence:
-            confidence_loss, confidence_label = self.confidence_loss_and_label(
-                batch, y_logits, confidence
+            # confident samples metrics
+            if self.config.opt.train_confidence:
+                for output_name in self.config.model.outputs:
+                    (
+                        pred_values[output_name + "_confident"],
+                        gt_values[output_name + "_confident"],
+                    ) = self.confident_samples_pred_and_label(
+                        output_name=output_name,
+                        batch=batch,
+                        y_logits=y_logits,
+                        confidence_logits=confidence_logits,
+                    )
+        if self.config.opt.train_confidence:
+            pred_values["confident_percent"] = self.confident_mask(
+                confidence_logits[batch["ap_mask"]]
             )
-            pred_values["confidence"] = confidence
+            gt_values["confident_percent"] = torch.ones_like(
+                pred_values["confident_percent"]
+            ).long()
+
+        # confidence loss
+        if self.config.opt.train_confidence:
+            confidence_on_ap = confidence_logits[batch["ap_mask"]]
+            confidence_loss, confidence_label = self.confidence_loss_and_label(
+                batch, y_logits, confidence_on_ap
+            )
+            pred_values["confidence"] = confidence_on_ap
             gt_values["confidence"] = confidence_label
             losses["confidence"] = confidence_loss
 
@@ -196,6 +240,44 @@ class BrainwaysRegModel(pl.LightningModule):
             self.log(f"{phase}_loss", loss, prog_bar=True, batch_size=batch_size)
 
         return loss
+
+    def confident_samples_pred_and_label(
+        self,
+        output_name: str,
+        batch: Dict[str, Tensor],
+        y_logits: Dict[str, Tensor],
+        confidence_logits: Tensor,
+    ):
+        output_mask = batch[output_name + "_mask"]
+        confident_mask = self.confident_mask(confidence_logits[output_mask])
+        pred = model_label_to_value(
+            label=torch.argmax(y_logits[output_name][confident_mask], dim=-1),
+            label_params=self.label_params[output_name],
+        )
+        label = model_label_to_value(
+            label=batch[output_name][confident_mask],
+            label_params=self.label_params[output_name],
+        )
+
+        if not confident_mask.any():
+            return (
+                torch.full(
+                    [1],
+                    model_label_to_value(
+                        label=self.label_params[output_name].n_classes - 1,
+                        label_params=self.label_params[output_name],
+                    ),
+                    device=confidence_logits.device,
+                    dtype=pred.dtype,
+                ),
+                torch.zeros([1], device=confidence_logits.device, dtype=torch.long),
+            )
+        return pred, label
+
+    def confident_mask(self, confidence_logits: Tensor):
+        confidence_prob = torch.softmax(confidence_logits, dim=-1)[:, 1]
+        confident_mask = confidence_prob > 0.9  # TODO: from config
+        return confident_mask
 
     def confidence_loss_and_label(
         self, batch: Dict[str, Tensor], y_logits: Tensor, confidence: Tensor

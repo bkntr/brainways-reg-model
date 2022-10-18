@@ -58,6 +58,7 @@ class OptimizationConfig:
     check_val_every_n_epoch: int
     monitor: MonitorConfig
     train_confidence: bool
+    loss_weights: Dict[str, float]
 
 
 @dataclass
