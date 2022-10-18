@@ -201,28 +201,28 @@ stages:
       --output trained_model/synth/scores.json
     deps:
     - path: src/brainways_reg_model/model/evaluate.py
-      md5: 363ae50aad5064af2339c07caa8ea9dc
-      size: 2276
+      md5: 7682ba49eae4ef2b5ca8c4335dd4045b
+      size: 2192
     - path: trained_model/synth/model.ckpt
-      md5: e73d9a49cd03a96b3c1acf47cdc4d783
-      size: 290426223
+      md5: 7d036263edae306be7a0fa043739a970
+      size: 290348219
     outs:
     - path: trained_model/synth/scores.json
-      md5: 51d81d50a16f1ae237db3274d7afe054
+      md5: 3c193bdf5f5387d1df6714c563ae6bdd
       size: 180
   eval-finetune:
     cmd: brainways-reg-model evaluate
     deps:
     - path: src/brainways_reg_model/model/evaluate.py
-      md5: 363ae50aad5064af2339c07caa8ea9dc
-      size: 2276
+      md5: 952b08b4ad57ee43039436a876b5b0f8
+      size: 2219
     - path: trained_model/real/model.ckpt
-      md5: bd8afde99389c27b8c47687be8ef0519
-      size: 290426863
+      md5: 9038a9539e62423a19918ddeddf190cb
+      size: 290427247
     outs:
     - path: trained_model/real/scores.json
-      md5: ca31f3becefdef3f31affff3ce5fe7f7
-      size: 259
+      md5: 58ce4b7693d36b780ab065e26c78caf8
+      size: 261
   train-synth:
     cmd: brainways-reg-model train --config reg --train-data data/synth.zip --output
       trained_model/synth
@@ -234,14 +234,14 @@ stages:
       md5: 6318577a216c85d2fb9ed36860092172
       size: 698700770
     - path: src/brainways_reg_model/model/dataset.py
-      md5: b2a1313690de6215a9d1311fef21b925
-      size: 6275
+      md5: 51a2fff0dd82cc78f8d3226e45d0fcdf
+      size: 6002
     - path: src/brainways_reg_model/model/model.py
-      md5: 2f31b847adf1da19a70aeb1d16a93bf4
-      size: 10899
+      md5: 40575833d3e327f0a1aab1713af08d2f
+      size: 10677
     - path: src/brainways_reg_model/model/train.py
-      md5: b9ab10dc1caac4ebf05d5deff3af2e89
-      size: 4761
+      md5: 405ee91300cdb8da667fa54a3942b85d
+      size: 4839
     params:
       params.yaml:
         default:
@@ -299,25 +299,26 @@ stages:
           opt:
             train_bn: true
             milestones:
-            - 5
             - 10
+            - 20
             lr: 0.001
             lr_scheduler_gamma: 0.5
             weight_decay: 0.0001
-            max_epochs: 25
+            max_epochs: 30
             monitor:
-              metric: val_ap_acc_10
-              mode: max
+              metric: val_ap_mae
+              mode: min
             train_confidence: false
+            check_val_every_n_epoch: 5
         reg: {}
     outs:
     - path: trained_model/synth/logs
-      md5: 1756d1c37f82f66d3888232f959c6973.dir
-      size: 24253
+      md5: d7ccd165ffbbc4e5fae8ff25c4e7ba00.dir
+      size: 26661
       nfiles: 2
     - path: trained_model/synth/model.ckpt
-      md5: e73d9a49cd03a96b3c1acf47cdc4d783
-      size: 290426223
+      md5: 7d036263edae306be7a0fa043739a970
+      size: 290348219
   train-real:
     cmd: brainways-reg-model train --config finetune --train-data data/real.zip --output
       trained_model/real --pretrained-checkpoint trained_model/synth/model.ckpt
@@ -326,17 +327,17 @@ stages:
       md5: 0f068e9fb0d1a0d6112f53340dec7ae6
       size: 2129199043
     - path: src/brainways_reg_model/model/dataset.py
-      md5: b2a1313690de6215a9d1311fef21b925
-      size: 6275
+      md5: 51a2fff0dd82cc78f8d3226e45d0fcdf
+      size: 6002
     - path: src/brainways_reg_model/model/model.py
-      md5: 2f31b847adf1da19a70aeb1d16a93bf4
-      size: 10899
+      md5: 40575833d3e327f0a1aab1713af08d2f
+      size: 10677
     - path: src/brainways_reg_model/model/train.py
-      md5: b9ab10dc1caac4ebf05d5deff3af2e89
-      size: 4761
+      md5: 405ee91300cdb8da667fa54a3942b85d
+      size: 4839
     - path: trained_model/synth/model.ckpt
-      md5: e73d9a49cd03a96b3c1acf47cdc4d783
-      size: 290426223
+      md5: 7d036263edae306be7a0fa043739a970
+      size: 290348219
     params:
       params.yaml:
         default:
@@ -394,36 +395,29 @@ stages:
           opt:
             train_bn: true
             milestones:
-            - 5
             - 10
+            - 20
             lr: 0.001
             lr_scheduler_gamma: 0.5
             weight_decay: 0.0001
-            max_epochs: 25
+            max_epochs: 30
             monitor:
-              metric: val_ap_acc_10
-              mode: max
+              metric: val_ap_mae
+              mode: min
             train_confidence: false
+            check_val_every_n_epoch: 5
         finetune:
           opt:
-            train_bn: true
-            lr: 0.001
-            lr_scheduler_gamma: 0.5
             weight_decay: 0.001
-            milestones:
-            - 5
-            - 10
             max_epochs: 100
-            monitor:
-              metric: val_ap_acc_10
-              mode: max
             train_confidence: true
+            check_val_every_n_epoch: 10
         reg: {}
     outs:
     - path: trained_model/real/logs
-      md5: c5e320f8654f6b79a043445f6d720e42.dir
-      size: 57135
+      md5: 416e88cd24f85ccc82a5133d93fc8a8d.dir
+      size: 20977
       nfiles: 2
     - path: trained_model/real/model.ckpt
-      md5: bd8afde99389c27b8c47687be8ef0519
-      size: 290426863
+      md5: 9038a9539e62423a19918ddeddf190cb
+      size: 290427247

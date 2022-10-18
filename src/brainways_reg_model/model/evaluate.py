@@ -56,12 +56,10 @@ def evaluate(checkpoint: Path, output: Path, config: str, num_workers: int):
         },
         data_config=config.data,
         num_workers=num_workers,
-        transform=model.transform,
-        target_transform=model.target_transform,
     )
 
     # Initialize a trainer
-    trainer = pl.Trainer(logger=False, gpus=1)
+    trainer = pl.Trainer(logger=False, accelerator="auto", max_epochs=-1)
 
     # Test the model ⚡
     scores = trainer.test(

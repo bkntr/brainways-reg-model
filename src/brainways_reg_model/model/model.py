@@ -142,7 +142,7 @@ class BrainwaysRegModel(pl.LightningModule):
         return list_of_reg_params
 
     def step(self, batch, batch_idx, phase: str, metrics: MetricCollection):
-        # TODO: refactor to incorporate "valid" and "confidence" more nicely
+        batch_size = len(batch["image"])
         # Forward pass
         with torch.no_grad():
             if phase == "train":
@@ -188,12 +188,12 @@ class BrainwaysRegModel(pl.LightningModule):
             losses["confidence"] = confidence_loss
 
         metrics_ = metrics(pred_values, gt_values)
-        self.log_dict(metrics_, prog_bar=True)
+        self.log_dict(metrics_, prog_bar=True, batch_size=batch_size)
 
         loss = torch.mean(torch.stack(list(losses.values())))
 
         if phase != "train":
-            self.log(f"{phase}_loss", loss, prog_bar=True)
+            self.log(f"{phase}_loss", loss, prog_bar=True, batch_size=batch_size)
 
         return loss
 
@@ -252,9 +252,9 @@ class BrainwaysRegModel(pl.LightningModule):
     @cached_property
     def transform(self):
         return K.AugmentationSequential(
-            kornia.color.GrayscaleToRgb(),
             K.Resize(self.config.data.image_size),
             RandomContrastLimits((0.001, 0.001), (0.998, 0.998)),
+            kornia.color.GrayscaleToRgb(),
             K.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ).to(self.device)
 
@@ -284,6 +284,7 @@ class BrainwaysRegModel(pl.LightningModule):
             RandomContrastLimits(),
             elastic_transform_aug,
             random_augmentations,
+            kornia.color.GrayscaleToRgb(),
             K.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             keepdim=True,
             same_on_batch=False,

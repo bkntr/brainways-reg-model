@@ -1,3 +1,4 @@
+import collections.abc
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple, Union
@@ -54,6 +55,7 @@ class OptimizationConfig:
     lr_scheduler_gamma: float
     weight_decay: float
     max_epochs: int
+    check_val_every_n_epoch: int
     monitor: MonitorConfig
     train_confidence: bool
 
@@ -82,6 +84,15 @@ def load_yaml(path: Union[Path, str]):
 _CONFIGS = {}
 
 
+def update_config(d, u):
+    for k, v in u.items():
+        if isinstance(v, collections.abc.Mapping):
+            d[k] = update_config(d.get(k, {}), v)
+        else:
+            d[k] = v
+    return d
+
+
 def load_config(config_names: Union[str, Sequence[str]] = "default") -> BrainwaysConfig:
     global _CONFIGS
     if isinstance(config_names, str):
@@ -92,7 +103,7 @@ def load_config(config_names: Union[str, Sequence[str]] = "default") -> Brainway
         config = all_configs["default"]
         for config_name in config_names:
             if config_name != "default":
-                config.update(all_configs[config_name])
+                update_config(config, all_configs[config_name])
         dacite_config = Config(cast=[Tuple])
         _CONFIGS[config_names] = dacite.from_dict(
             BrainwaysConfig, data=config, config=dacite_config

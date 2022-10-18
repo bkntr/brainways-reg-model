@@ -126,6 +126,7 @@ def train(
         callbacks=[finetuning_callback, checkpoint_callback],
         accelerator="auto",
         max_epochs=config.opt.max_epochs,
+        check_val_every_n_epoch=config.opt.check_val_every_n_epoch,
         # num_sanity_val_steps=0,
     )
 
