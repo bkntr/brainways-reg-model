@@ -204,23 +204,226 @@ stages:
       md5: 363ae50aad5064af2339c07caa8ea9dc
       size: 2276
     - path: trained_model/synth/model.ckpt
-      md5: 5e41af85adda890329024de167df9290
-      size: 290350579
+      md5: e73d9a49cd03a96b3c1acf47cdc4d783
+      size: 290426223
     outs:
     - path: trained_model/synth/scores.json
-      md5: 182851d6474c980b763f249e0404213d
-      size: 181
+      md5: 51d81d50a16f1ae237db3274d7afe054
+      size: 180
   eval-finetune:
-    cmd: python -m brainways_reg_model.model.evaluate trained_model/real/model.ckpt
-      trained_model/real/scores.json
+    cmd: brainways-reg-model evaluate
     deps:
     - path: src/brainways_reg_model/model/evaluate.py
-      md5: c91d71ac2f0424726abda89203d501f1
-      size: 1961
+      md5: 363ae50aad5064af2339c07caa8ea9dc
+      size: 2276
     - path: trained_model/real/model.ckpt
-      md5: 001372b4053ff735d5af1ed2592ff62e
-      size: 102745859
+      md5: bd8afde99389c27b8c47687be8ef0519
+      size: 290426863
     outs:
     - path: trained_model/real/scores.json
-      md5: 705d4168b6b5e03201fcea500078f1e5
-      size: 509
+      md5: ca31f3becefdef3f31affff3ce5fe7f7
+      size: 259
+  train-synth:
+    cmd: brainways-reg-model train --config reg --train-data data/synth.zip --output
+      trained_model/synth
+    deps:
+    - path: data/real.zip
+      md5: 0f068e9fb0d1a0d6112f53340dec7ae6
+      size: 2129199043
+    - path: data/synth.zip
+      md5: 6318577a216c85d2fb9ed36860092172
+      size: 698700770
+    - path: src/brainways_reg_model/model/dataset.py
+      md5: b2a1313690de6215a9d1311fef21b925
+      size: 6275
+    - path: src/brainways_reg_model/model/model.py
+      md5: 2f31b847adf1da19a70aeb1d16a93bf4
+      size: 10899
+    - path: src/brainways_reg_model/model/train.py
+      md5: b9ab10dc1caac4ebf05d5deff3af2e89
+      size: 4761
+    params:
+      params.yaml:
+        default:
+          seed: 1234
+          model:
+            backbone: resnet50
+            outputs:
+            - ap
+            - hemisphere
+            - valid
+          data:
+            atlas:
+              name: whs_sd_rat_39um
+              brainglobe: true
+              exclude_regions:
+              - 76
+              - 42
+              - 41
+            image_size:
+            - 128
+            - 128
+            batch_size: 128
+            label_params:
+              ap:
+                n_classes: 512
+                limits:
+                - 122
+                - 799
+              rot_frontal:
+                n_classes: 10
+                limits:
+                - -15
+                - 15
+              rot_horizontal:
+                n_classes: 7
+                limits:
+                - -7
+                - 7
+              rot_sagittal:
+                n_classes: 7
+                limits:
+                - -7
+                - 7
+              hemisphere:
+                n_classes: 3
+                label_names:
+                - both
+                - right
+                - left
+              valid:
+                n_classes: 2
+                label_names:
+                - no
+                - yes
+          opt:
+            train_bn: true
+            milestones:
+            - 5
+            - 10
+            lr: 0.001
+            lr_scheduler_gamma: 0.5
+            weight_decay: 0.0001
+            max_epochs: 25
+            monitor:
+              metric: val_ap_acc_10
+              mode: max
+            train_confidence: false
+        reg: {}
+    outs:
+    - path: trained_model/synth/logs
+      md5: 1756d1c37f82f66d3888232f959c6973.dir
+      size: 24253
+      nfiles: 2
+    - path: trained_model/synth/model.ckpt
+      md5: e73d9a49cd03a96b3c1acf47cdc4d783
+      size: 290426223
+  train-real:
+    cmd: brainways-reg-model train --config finetune --train-data data/real.zip --output
+      trained_model/real --pretrained-checkpoint trained_model/synth/model.ckpt
+    deps:
+    - path: data/real.zip
+      md5: 0f068e9fb0d1a0d6112f53340dec7ae6
+      size: 2129199043
+    - path: src/brainways_reg_model/model/dataset.py
+      md5: b2a1313690de6215a9d1311fef21b925
+      size: 6275
+    - path: src/brainways_reg_model/model/model.py
+      md5: 2f31b847adf1da19a70aeb1d16a93bf4
+      size: 10899
+    - path: src/brainways_reg_model/model/train.py
+      md5: b9ab10dc1caac4ebf05d5deff3af2e89
+      size: 4761
+    - path: trained_model/synth/model.ckpt
+      md5: e73d9a49cd03a96b3c1acf47cdc4d783
+      size: 290426223
+    params:
+      params.yaml:
+        default:
+          seed: 1234
+          model:
+            backbone: resnet50
+            outputs:
+            - ap
+            - hemisphere
+            - valid
+          data:
+            atlas:
+              name: whs_sd_rat_39um
+              brainglobe: true
+              exclude_regions:
+              - 76
+              - 42
+              - 41
+            image_size:
+            - 128
+            - 128
+            batch_size: 128
+            label_params:
+              ap:
+                n_classes: 512
+                limits:
+                - 122
+                - 799
+              rot_frontal:
+                n_classes: 10
+                limits:
+                - -15
+                - 15
+              rot_horizontal:
+                n_classes: 7
+                limits:
+                - -7
+                - 7
+              rot_sagittal:
+                n_classes: 7
+                limits:
+                - -7
+                - 7
+              hemisphere:
+                n_classes: 3
+                label_names:
+                - both
+                - right
+                - left
+              valid:
+                n_classes: 2
+                label_names:
+                - no
+                - yes
+          opt:
+            train_bn: true
+            milestones:
+            - 5
+            - 10
+            lr: 0.001
+            lr_scheduler_gamma: 0.5
+            weight_decay: 0.0001
+            max_epochs: 25
+            monitor:
+              metric: val_ap_acc_10
+              mode: max
+            train_confidence: false
+        finetune:
+          opt:
+            train_bn: true
+            lr: 0.001
+            lr_scheduler_gamma: 0.5
+            weight_decay: 0.001
+            milestones:
+            - 5
+            - 10
+            max_epochs: 100
+            monitor:
+              metric: val_ap_acc_10
+              mode: max
+            train_confidence: true
+        reg: {}
+    outs:
+    - path: trained_model/real/logs
+      md5: c5e320f8654f6b79a043445f6d720e42.dir
+      size: 57135
+      nfiles: 2
+    - path: trained_model/real/model.ckpt
+      md5: bd8afde99389c27b8c47687be8ef0519
+      size: 290426863

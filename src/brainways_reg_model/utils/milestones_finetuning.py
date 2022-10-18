@@ -10,7 +10,8 @@ class MilestonesFinetuning(BaseFinetuning):
         self.train_bn = train_bn
 
     def freeze_before_training(self, pl_module: pl.LightningModule):
-        self.freeze(modules=pl_module.feature_extractor, train_bn=self.train_bn)
+        for param in pl_module.feature_extractor.parameters():
+            param.requires_grad = False
 
     def finetune_function(
         self,
@@ -25,6 +26,7 @@ class MilestonesFinetuning(BaseFinetuning):
                 modules=pl_module.feature_extractor[-5:],
                 optimizer=optimizer,
                 train_bn=self.train_bn,
+                initial_denom_lr=1.0,
             )
 
         elif epoch == self.milestones[1]:
@@ -33,4 +35,5 @@ class MilestonesFinetuning(BaseFinetuning):
                 modules=pl_module.feature_extractor[:-5],
                 optimizer=optimizer,
                 train_bn=self.train_bn,
+                initial_denom_lr=1.0,
             )

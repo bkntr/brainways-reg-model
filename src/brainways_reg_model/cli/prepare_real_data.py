@@ -50,8 +50,13 @@ def prepare_real_data():
         metadata = yaml.safe_load(fd)
     test_animal_ids = ["Dev24", "Dev25", "81-1", "Retro2", "29-2"]
     val_animal_ids = ["Dev27", "Dev28", "Retro1", "85-2"]
-    test_labels = labels.loc[labels.animal_id.isin(test_animal_ids)]
-    val_labels = labels.loc[labels.animal_id.isin(val_animal_ids)]
+    cfos_channels = ["Alexa Fluor 488", "AF488", "AF647"]
+    test_labels = labels.loc[
+        labels.animal_id.isin(test_animal_ids) & labels.channel.isin(cfos_channels)
+    ]
+    val_labels = labels.loc[
+        labels.animal_id.isin(val_animal_ids) & labels.channel.isin(cfos_channels)
+    ]
     train_labels = labels.loc[~labels.animal_id.isin(test_animal_ids + val_animal_ids)]
 
     prepare_real_data_phase(

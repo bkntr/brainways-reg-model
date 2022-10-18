@@ -5,6 +5,7 @@ from typing import Callable, Dict, Optional, Union
 
 import numpy as np
 import pandas as pd
+import torch
 from bg_atlasapi import BrainGlobeAtlas
 from PIL import Image
 from pytorch_lightning import LightningDataModule
@@ -12,7 +13,6 @@ from torch.utils.data import DataLoader, Dataset
 
 from brainways_reg_model.utils.config import DataConfig, load_yaml
 from brainways_reg_model.utils.data import value_to_model_label
-from brainways_reg_model.utils.structure_labels import structure_labels
 
 log = logging.getLogger(__name__)
 
@@ -47,11 +47,23 @@ class BrainwaysDataset(Dataset):
         self.target_transform = target_transform
         self.metadata = load_yaml(root / "metadata.yaml")
         self.atlas = BrainGlobeAtlas(self.metadata["atlas"])
+        self.images = [self.read_image(i) for i in range(len(self))]
+
+    def read_image(self, index: int) -> torch.Tensor:
+        current_raw_labels = self.labels.iloc[index]
+        filename = current_raw_labels.filename
+        return torch.as_tensor(
+            np.array(
+                Image.open(self.images_root / filename).resize(
+                    self.data_config.image_size
+                ),
+                dtype=np.float32,
+            )
+        )[None, ...]
 
     def __getitem__(self, item):
         current_raw_labels = self.labels.iloc[item]
         current_raw_labels_mask = ~current_raw_labels.isna()
-        filename = current_raw_labels.filename
 
         # read label
         output_labels = {}
@@ -65,24 +77,24 @@ class BrainwaysDataset(Dataset):
                     value=value, label_params=label_params
                 )
             else:
-                output_labels[label_name] = int(1e6)
+                output_labels[label_name] = 0
 
-        # read image
-        image = Image.open(self.images_root / filename).convert("RGB")
+        image = self.images[item]
 
-        # read structures
-        structures_path = self.images_root / f"{filename}-structures.tif"
-        if structures_path.exists():
-            structures = Image.open(self.images_root / f"{filename}-structures.tif")
-            structures = structure_labels(
-                np.array(structures), self.data_config.structures, self.atlas
-            )
-        else:
-            structures = None
+        # # read structures
+        # structures_path = self.images_root / f"{filename}-structures.tif"
+        # if structures_path.exists():
+        #     structures = Image.open(self.images_root / f"{filename}-structures.tif")
+        #     structures = structure_labels(
+        #         np.array(structures), self.data_config.structures, self.atlas
+        #     )
+        # else:
+        #     structures = None
+        structures = None
 
         # transform
         if self.transform is not None:
-            image = self.transform(image)
+            image = self.transform(image[None, ...])[0]
 
         # target transform
         if self.target_transform is not None and structures is not None:
@@ -90,7 +102,6 @@ class BrainwaysDataset(Dataset):
 
         # augment
         if self.augmentation is not None:
-            # TODO: remove transform to tensor and back to pil somehow
             image = self.augmentation(image[None, ...])[0]
 
         output = {"image": image, **output_labels, **output_masks}
@@ -133,7 +144,7 @@ class BrainwaysDataModule(LightningDataModule):
             root=data_path / stage,
             data_config=self.data_config,
             augmentation=self.augmentation if train else None,
-            transform=self.transform,
+            transform=self.transform if not train else None,
             target_transform=self.target_transform,
         )
 

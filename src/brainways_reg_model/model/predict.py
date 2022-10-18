@@ -1,8 +1,8 @@
-import argparse
 import random
 from pathlib import Path
 from typing import Optional
 
+import click
 import napari
 import numpy as np
 import PIL.Image
@@ -129,6 +129,7 @@ class RegistrationAnnotator:
 
     def change_image(self):
         image = PIL.Image.open(self.image_path)
+        image = torch.as_tensor(np.array(image, dtype=np.float32))[None, ...]
         params = self.model.predict(image)
 
         self.registration_params_widget(
@@ -156,20 +157,22 @@ class RegistrationAnnotator:
         self.atlas_slice_layer.reset_contrast_limits_range()
         self.atlas_slice_layer.reset_contrast_limits()
         input_scale = min(
-            atlas_slice.shape[0] / image.height, atlas_slice.shape[1] / image.width
+            atlas_slice.shape[0] / image.shape[1], atlas_slice.shape[1] / image.shape[2]
         )
         self.input_layer.scale = (input_scale, input_scale)
         self.viewer.reset_view()
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--images", default=REAL_DATA_ROOT / "test/images")
-    args = parser.parse_args()
-
-    RegistrationAnnotator(images_root=args.images)
+@click.command()
+@click.option(
+    "--images",
+    default=REAL_DATA_ROOT / "test/images",
+    help="Images path",
+)
+def predict(images: str):
+    RegistrationAnnotator(images_root=images)
     napari.run()
 
 
 if __name__ == "__main__":
-    main()
+    predict()

@@ -1,10 +1,10 @@
 from functools import cached_property
 from typing import Dict, List, Sequence, Union
 
+import kornia.color
 import pytorch_lightning as pl
 import torch
 from kornia import augmentation as K
-from PIL import Image
 from pytorch_lightning.utilities import rank_zero_info
 from torch import Tensor, nn, optim
 from torch.nn import functional as F
@@ -15,6 +15,9 @@ from torchvision import models, transforms
 from brainways_reg_model.model.approx_acc import ApproxAccuracy
 from brainways_reg_model.model.atlas_registration_params import AtlasRegistrationParams
 from brainways_reg_model.model.metric_dict_input_wrapper import MetricDictInputWrapper
+from brainways_reg_model.utils.augmentations.random_contrast_limits import (
+    RandomContrastLimits,
+)
 from brainways_reg_model.utils.config import BrainwaysConfig
 from brainways_reg_model.utils.data import model_label_to_value
 
@@ -89,17 +92,15 @@ class BrainwaysRegModel(pl.LightningModule):
         return outputs, confidence
 
     def predict(
-        self, x: Union[Image.Image, Sequence[Image.Image]]
+        self, x: Union[torch.Tensor, Sequence[torch.Tensor]]
     ) -> Union[AtlasRegistrationParams, List[AtlasRegistrationParams]]:
-        if isinstance(x, Image.Image):
+        if isinstance(x, torch.Tensor):
             x = [x]
             batch = False
         else:
             batch = True
 
-        x = torch.stack([self.transform(image.convert("RGB")) for image in x]).to(
-            self.device
-        )
+        x = self.transform(torch.stack(x).to(self.device))
         y_logits, confidence = self(x)
         preds = self.postprocess(y_logits, confidence)
 
@@ -143,50 +144,47 @@ class BrainwaysRegModel(pl.LightningModule):
     def step(self, batch, batch_idx, phase: str, metrics: MetricCollection):
         # TODO: refactor to incorporate "valid" and "confidence" more nicely
         # Forward pass
-        y_logits, confidence = self(batch["image"])
+        with torch.no_grad():
+            if phase == "train":
+                image = self.augmentation(batch["image"])
+            else:
+                image = self.transform(batch["image"])
+        y_logits, confidence = self(image)
+
+        # mask out irrelevant outputs
+        confidence = confidence[batch["ap_mask"]]
+        for output_name in self.config.model.outputs:
+            output_mask = batch[output_name + "_mask"]
+            batch[output_name] = batch[output_name][output_mask]
+            y_logits[output_name] = y_logits[output_name][output_mask]
 
         # Compute losses and metrics
         losses = {}
         pred_values = {}
         gt_values = {}
         for output_name in self.config.model.outputs:
-            output_mask = batch[output_name + "_mask"]
-            if not output_mask.any():
+            if len(y_logits[output_name]) == 0:
                 continue
             losses[output_name] = self.loss_func(
-                input=F.log_softmax(y_logits[output_name][output_mask], dim=-1),
-                target=batch[output_name][output_mask],
+                input=F.log_softmax(y_logits[output_name], dim=-1),
+                target=batch[output_name],
             )
             pred_values[output_name] = model_label_to_value(
-                label=torch.argmax(y_logits[output_name][output_mask], dim=-1),
+                label=torch.argmax(y_logits[output_name], dim=-1),
                 label_params=self.label_params[output_name],
             )
             gt_values[output_name] = model_label_to_value(
-                label=batch[output_name][output_mask],
+                label=batch[output_name],
                 label_params=self.label_params[output_name],
             )
 
         # confidence loss
-        # TODO: export to function?
-        # need to re-calculate pred and gt to get non-valid values in their
-        # correct place
-        if self.config.opt.train_confidence:
-            with torch.no_grad():
-                pred_ap = model_label_to_value(
-                    label=torch.argmax(y_logits["ap"], dim=-1),
-                    label_params=self.label_params["ap"],
-                ).int()
-                gt_ap = model_label_to_value(
-                    label=batch["ap"], label_params=self.label_params["ap"]
-                ).int()
-                confidence_label = (abs(gt_ap - pred_ap) < 20).int()
-
+        if len(confidence) > 0 and self.config.opt.train_confidence:
+            confidence_loss, confidence_label = self.confidence_loss_and_label(
+                batch, y_logits, confidence
+            )
             pred_values["confidence"] = confidence
             gt_values["confidence"] = confidence_label
-
-            confidence_loss = self.loss_func(
-                input=F.log_softmax(confidence, dim=-1), target=confidence_label.long()
-            )
             losses["confidence"] = confidence_loss
 
         metrics_ = metrics(pred_values, gt_values)
@@ -198,6 +196,26 @@ class BrainwaysRegModel(pl.LightningModule):
             self.log(f"{phase}_loss", loss, prog_bar=True)
 
         return loss
+
+    def confidence_loss_and_label(
+        self, batch: Dict[str, Tensor], y_logits: Tensor, confidence: Tensor
+    ):
+        with torch.no_grad():
+            pred_ap = model_label_to_value(
+                label=torch.argmax(y_logits["ap"], dim=-1),
+                label_params=self.label_params["ap"],
+            ).int()
+            gt_ap = model_label_to_value(
+                label=batch["ap"],
+                label_params=self.label_params["ap"],
+            ).int()
+            confidence_label = (abs(gt_ap - pred_ap) < 20).int()
+
+        confidence_loss = self.loss_func(
+            input=F.log_softmax(confidence, dim=-1),
+            target=confidence_label.long(),
+        )
+        return confidence_loss, confidence_label
 
     def training_step(self, batch, batch_idx):
         return self.step(batch, batch_idx, "train", self.train_metrics)
@@ -233,19 +251,22 @@ class BrainwaysRegModel(pl.LightningModule):
 
     @cached_property
     def transform(self):
-        return transforms.Compose(
-            [
-                transforms.Resize(self.config.data.image_size),
-                transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                ),
-            ]
-        )
+        return K.AugmentationSequential(
+            kornia.color.GrayscaleToRgb(),
+            K.Resize(self.config.data.image_size),
+            RandomContrastLimits((0.001, 0.001), (0.998, 0.998)),
+            K.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ).to(self.device)
 
     @cached_property
     def augmentation(self):
-        return K.AugmentationSequential(
+        elastic_transform_aug = K.AugmentationSequential(
+            K.RandomElasticTransform(kernel_size=(63, 63), sigma=(32.0, 32.0)),
+            K.RandomElasticTransform(kernel_size=(31, 31), sigma=(16.0, 16.0)),
+            K.RandomElasticTransform(kernel_size=(21, 21), sigma=(12.0, 12.0)),
+            random_apply=1,
+        )
+        random_augmentations = K.AugmentationSequential(
             # K.ColorJitter(0.2, 0.2, 0.2),
             K.RandomAffine(
                 degrees=30,
@@ -256,10 +277,14 @@ class BrainwaysRegModel(pl.LightningModule):
             # K.RandomPerspective(distortion_scale=0.5),
             K.RandomBoxBlur(p=0.2),
             K.RandomErasing(),
-            K.RandomElasticTransform(kernel_size=(63, 63), sigma=(32.0, 32.0)),
-            K.RandomElasticTransform(kernel_size=(31, 31), sigma=(16.0, 16.0)),
-            K.RandomElasticTransform(kernel_size=(21, 21), sigma=(12.0, 12.0)),
             random_apply=(1,),
+        )
+        return K.AugmentationSequential(
+            K.Resize(self.config.data.image_size),
+            RandomContrastLimits(),
+            elastic_transform_aug,
+            random_augmentations,
+            K.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             keepdim=True,
             same_on_batch=False,
-        )
+        ).to(self.device)

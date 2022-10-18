@@ -1,6 +1,6 @@
-import argparse
 import random
 
+import click
 import napari
 import numpy as np
 import torch
@@ -9,6 +9,7 @@ from magicgui import magicgui
 from brainways_reg_model.model.dataset import BrainwaysDataModule, BrainwaysDataset
 from brainways_reg_model.model.model import BrainwaysRegModel
 from brainways_reg_model.utils.config import load_config
+from brainways_reg_model.utils.data import model_label_to_value
 from brainways_reg_model.utils.paths import REAL_DATA_ZIP_PATH, SYNTH_DATA_ZIP_PATH
 from brainways_reg_model.utils.slice_atlas import slice_atlas
 
@@ -98,6 +99,7 @@ class DatasetViewer:
         ap: float,
         rot_horizontal: float,
         hemisphere: str,
+        valid: bool,
     ) -> napari.types.LayerDataTuple:
         pass
 
@@ -110,17 +112,21 @@ class DatasetViewer:
     def change_image(self):
         sample = self.dataset[self.current_idx]
         image = self.dataset[self.current_idx]["image"].numpy()
+        ap = model_label_to_value(
+            sample["ap"], label_params=self.dataset.label_params["ap"]
+        )
 
         self.registration_params_widget(
-            ap=sample["ap"],
+            ap=ap,
             rot_horizontal=0,
             hemisphere=sample["hemisphere"],
+            valid=bool(sample["valid"]),
             update_widget=True,
         )
         atlas_slice = slice_atlas(
             shape=self.atlas_volume.shape[1:],
             volume=self.atlas_volume,
-            ap=sample["ap"],
+            ap=ap,
             si=self.atlas_volume.shape[1] / 2,
             lr=self.atlas_volume.shape[2] / 2,
             rot_frontal=0,
@@ -141,18 +147,24 @@ class DatasetViewer:
         self.viewer.reset_view()
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--type", default="real")
-    parser.add_argument("--phase", default="train")
-    args = parser.parse_args()
-
+@click.command()
+@click.option(
+    "--type",
+    default="real",
+    help="Data type - real/synth",
+)
+@click.option(
+    "--phase",
+    default="train",
+    help="Data phase - train/val/test",
+)
+def view_dataset(type: str, phase: str):
     config = load_config("reg")
 
     # init model
     model = BrainwaysRegModel(config)
 
-    zip_path = SYNTH_DATA_ZIP_PATH if args.type == "synth" else REAL_DATA_ZIP_PATH
+    zip_path = SYNTH_DATA_ZIP_PATH if type == "synth" else REAL_DATA_ZIP_PATH
 
     # init data
     datamodule = BrainwaysDataModule(
@@ -169,11 +181,11 @@ def main():
     )
 
     dataset = None
-    if args.phase == "train":
+    if phase == "train":
         dataset = datamodule.train_dataloader().dataset
-    elif args.phase == "val":
+    elif phase == "val":
         dataset = datamodule.val_dataloader().dataset
-    elif args.phase == "test":
+    elif phase == "test":
         dataset = datamodule.test_dataloader().dataset
     else:
         raise ValueError()
@@ -183,4 +195,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    view_dataset()

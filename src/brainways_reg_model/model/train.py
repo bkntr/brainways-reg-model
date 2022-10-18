@@ -81,7 +81,7 @@ log = logging.getLogger(__name__)
     type=Path,
     help="Pretrained model path.",
 )
-@click.option("--num-workers", default=16, help="Number of data workers.")
+@click.option("--num-workers", default=32, help="Number of data workers.")
 def train(
     config_name: str,
     train_data_path: Path,
@@ -101,6 +101,7 @@ def train(
         model = BrainwaysRegModel(config)
 
     # init data
+    # transformes are performed in the model (in gpu) so are not given to the dataset
     datamodule = BrainwaysDataModule(
         data_paths={
             "train": train_data_path,
@@ -109,9 +110,7 @@ def train(
         },
         data_config=config.data,
         num_workers=num_workers,
-        transform=model.transform,
         target_transform=model.target_transform,
-        augmentation=model.augmentation,
     )
 
     finetuning_callback = MilestonesFinetuning(
@@ -127,7 +126,7 @@ def train(
         callbacks=[finetuning_callback, checkpoint_callback],
         accelerator="auto",
         max_epochs=config.opt.max_epochs,
-        num_sanity_val_steps=0,
+        # num_sanity_val_steps=0,
     )
 
     # Train the model ⚡
