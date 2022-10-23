@@ -1,6 +1,7 @@
 from functools import cached_property
 from typing import Dict, List, Sequence, Union
 
+import kornia
 import kornia.color
 import pytorch_lightning as pl
 import torch
@@ -8,7 +9,6 @@ from kornia import augmentation as K
 from pytorch_lightning.utilities import rank_zero_info
 from torch import Tensor, nn, optim
 from torch.nn import functional as F
-from torch.optim.lr_scheduler import MultiStepLR
 from torchmetrics import Accuracy, MeanAbsoluteError, MetricCollection
 from torchvision import models, transforms
 
@@ -19,7 +19,11 @@ from brainways_reg_model.utils.augmentations.random_contrast_limits import (
     RandomContrastLimits,
 )
 from brainways_reg_model.utils.config import BrainwaysConfig
-from brainways_reg_model.utils.data import model_label_to_value
+from brainways_reg_model.utils.data import (
+    get_augmentation_rotation_deg,
+    model_label_to_value,
+    value_to_model_label,
+)
 
 
 class BrainwaysRegModel(pl.LightningModule):
@@ -53,13 +57,19 @@ class BrainwaysRegModel(pl.LightningModule):
                 ),
                 "hemisphere" + postfix,
             ),
+            "rot_frontal_acc"
+            + postfix: MetricDictInputWrapper(
+                ApproxAccuracy(tolerance=5),
+                "rot_frontal" + postfix,
+            ),
         }
 
     def _build_metrics(self):
         metrics = self._build_metrics_base()
         if self.config.opt.train_confidence:
             metrics.update(self._build_metrics_base(postfix="_confident"))
-            metrics["valid_acc"] = MetricDictInputWrapper(Accuracy(), "valid")
+            if "valid" in self.config.model.outputs:
+                metrics["valid_acc"] = MetricDictInputWrapper(Accuracy(), "valid")
             metrics["confidence_acc"] = MetricDictInputWrapper(Accuracy(), "confidence")
             metrics["confident_percent"] = MetricDictInputWrapper(
                 Accuracy(), "confident_percent"
@@ -150,6 +160,7 @@ class BrainwaysRegModel(pl.LightningModule):
         list_of_reg_params = [
             AtlasRegistrationParams(
                 ap=d.get("ap"),
+                rot_frontal=d.get("rot_frontal", 0.0),
                 rot_horizontal=d.get("rot_horizontal", 0.0),
                 rot_sagittal=d.get("rot_sagittal", 0.0),
                 hemisphere=self.label_params["hemisphere"].label_names[
@@ -163,11 +174,12 @@ class BrainwaysRegModel(pl.LightningModule):
         return list_of_reg_params
 
     def step(self, batch, batch_idx, phase: str, metrics: MetricCollection):
-        batch_size = len(batch["image"])
+        batch_size, C, H, W = batch["image"].shape
         # Forward pass
         with torch.no_grad():
             if phase == "train":
                 image = self.augmentation(batch["image"])
+                self.add_augmentation_rotation_to_label(batch)
             else:
                 image = self.transform(batch["image"])
         y_logits, confidence_logits = self(image)
@@ -240,6 +252,20 @@ class BrainwaysRegModel(pl.LightningModule):
             self.log(f"{phase}_loss", loss, prog_bar=True, batch_size=batch_size)
 
         return loss
+
+    def add_augmentation_rotation_to_label(self, batch: Dict[str, Tensor]):
+        rot_frontal_mask = batch["rot_frontal_mask"]
+        if rot_frontal_mask.any():
+            augmentation_deg = get_augmentation_rotation_deg(self.augmentation)
+            rot_frontal_value = model_label_to_value(
+                label=batch["rot_frontal"][rot_frontal_mask],
+                label_params=self.label_params["rot_frontal"],
+            )
+            rot_frontal_value += augmentation_deg[rot_frontal_mask]
+            batch["rot_frontal"][rot_frontal_mask] = value_to_model_label(
+                value=rot_frontal_value,
+                label_params=self.label_params["rot_frontal"],
+            )
 
     def confident_samples_pred_and_label(
         self,
@@ -320,12 +346,13 @@ class BrainwaysRegModel(pl.LightningModule):
             lr=self.config.opt.lr,
             weight_decay=self.config.opt.weight_decay,
         )
-        scheduler = MultiStepLR(
-            optimizer,
-            milestones=self.config.opt.milestones,
-            gamma=self.config.opt.lr_scheduler_gamma,
-        )
-        return [optimizer], [scheduler]
+        # scheduler = MultiStepLR(
+        #     optimizer,
+        #     milestones=self.config.opt.milestones,
+        #     gamma=self.config.opt.lr_scheduler_gamma,
+        # )
+        # return [optimizer], [scheduler]
+        return optimizer
 
     @cached_property
     def target_transform(self):
@@ -354,7 +381,7 @@ class BrainwaysRegModel(pl.LightningModule):
                 degrees=30,
                 translate=(0.1, 0.1),
                 scale=(0.7, 1.4),
-                shear=(20.0, 20.0),
+                # shear=(20.0, 20.0),
             ),
             # K.RandomPerspective(distortion_scale=0.5),
             K.RandomBoxBlur(p=0.2),

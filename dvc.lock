@@ -204,12 +204,12 @@ stages:
       md5: 952b08b4ad57ee43039436a876b5b0f8
       size: 2219
     - path: trained_model/synth/model.ckpt
-      md5: 7d036263edae306be7a0fa043739a970
-      size: 290348219
+      md5: 191dce0f74ff278ad0c1de598dd639ea
+      size: 290559407
     outs:
     - path: trained_model/synth/scores.json
-      md5: 5e3578328a0f928954d2b292efacf6f8
-      size: 181
+      md5: 06c85e02f44af316524d6a2697fe52e2
+      size: 224
   eval-finetune:
     cmd: brainways-reg-model evaluate
     deps:
@@ -217,41 +217,41 @@ stages:
       md5: 952b08b4ad57ee43039436a876b5b0f8
       size: 2219
     - path: trained_model/real/model.ckpt
-      md5: 9038a9539e62423a19918ddeddf190cb
-      size: 290427247
+      md5: 72e3462ca6edaabddfcebf6a65ab682e
+      size: 290561967
     outs:
     - path: trained_model/real/scores.json
-      md5: 74601acd8046493d8e85f194021d5118
-      size: 262
+      md5: dafbdd76ec8b9b0e49149ce87950b2d9
+      size: 552
   train-synth:
     cmd: brainways-reg-model train --config reg --train-data data/synth.zip --output
       trained_model/synth
     deps:
     - path: data/real.zip
-      md5: 0f068e9fb0d1a0d6112f53340dec7ae6
-      size: 2129199043
+      md5: 8e4985d279ece59439bafc39d8c936b6
+      size: 2163335821
     - path: data/synth.zip
       md5: 6318577a216c85d2fb9ed36860092172
       size: 698700770
     - path: src/brainways_reg_model/model/dataset.py
-      md5: 51a2fff0dd82cc78f8d3226e45d0fcdf
-      size: 6002
+      md5: 5b9bfe1de83bcc226628b04ad5986171
+      size: 6674
     - path: src/brainways_reg_model/model/model.py
-      md5: 40575833d3e327f0a1aab1713af08d2f
-      size: 10677
+      md5: fe6d90524b5d178f1c6498978c89acf4
+      size: 14963
     - path: src/brainways_reg_model/model/train.py
       md5: 405ee91300cdb8da667fa54a3942b85d
       size: 4839
     params:
       params.yaml:
         default:
-          seed: 1234
+          seed: 1111
           model:
             backbone: resnet50
             outputs:
             - ap
             - hemisphere
-            - valid
+            - rot_frontal
           data:
             atlas:
               name: whs_sd_rat_39um
@@ -271,10 +271,10 @@ stages:
                 - 122
                 - 799
               rot_frontal:
-                n_classes: 10
+                n_classes: 45
                 limits:
-                - -15
-                - 15
+                - -45
+                - 45
               rot_horizontal:
                 n_classes: 7
                 limits:
@@ -302,7 +302,7 @@ stages:
             - 10
             - 20
             lr: 0.001
-            lr_scheduler_gamma: 0.5
+            lr_scheduler_gamma: 0.1
             weight_decay: 0.0001
             max_epochs: 30
             monitor:
@@ -310,44 +310,48 @@ stages:
               mode: min
             train_confidence: false
             check_val_every_n_epoch: 5
+            loss_weights:
+              ap: 1.0
+              hemisphere: 1.0
+              rot_frontal: 1.0
         reg: {}
     outs:
     - path: trained_model/synth/logs
-      md5: d7ccd165ffbbc4e5fae8ff25c4e7ba00.dir
-      size: 26661
+      md5: 563bc32b0937b35d5cd7fcaafe67223c.dir
+      size: 25497
       nfiles: 2
     - path: trained_model/synth/model.ckpt
-      md5: 7d036263edae306be7a0fa043739a970
-      size: 290348219
+      md5: 191dce0f74ff278ad0c1de598dd639ea
+      size: 290559407
   train-real:
     cmd: brainways-reg-model train --config finetune --train-data data/real.zip --output
       trained_model/real --pretrained-checkpoint trained_model/synth/model.ckpt
     deps:
     - path: data/real.zip
-      md5: 0f068e9fb0d1a0d6112f53340dec7ae6
-      size: 2129199043
+      md5: 8e4985d279ece59439bafc39d8c936b6
+      size: 2163335821
     - path: src/brainways_reg_model/model/dataset.py
-      md5: 51a2fff0dd82cc78f8d3226e45d0fcdf
-      size: 6002
+      md5: 5b9bfe1de83bcc226628b04ad5986171
+      size: 6674
     - path: src/brainways_reg_model/model/model.py
-      md5: 40575833d3e327f0a1aab1713af08d2f
-      size: 10677
+      md5: fe6d90524b5d178f1c6498978c89acf4
+      size: 14963
     - path: src/brainways_reg_model/model/train.py
       md5: 405ee91300cdb8da667fa54a3942b85d
       size: 4839
     - path: trained_model/synth/model.ckpt
-      md5: 7d036263edae306be7a0fa043739a970
-      size: 290348219
+      md5: 191dce0f74ff278ad0c1de598dd639ea
+      size: 290559407
     params:
       params.yaml:
         default:
-          seed: 1234
+          seed: 1111
           model:
             backbone: resnet50
             outputs:
             - ap
             - hemisphere
-            - valid
+            - rot_frontal
           data:
             atlas:
               name: whs_sd_rat_39um
@@ -367,10 +371,10 @@ stages:
                 - 122
                 - 799
               rot_frontal:
-                n_classes: 10
+                n_classes: 45
                 limits:
-                - -15
-                - 15
+                - -45
+                - 45
               rot_horizontal:
                 n_classes: 7
                 limits:
@@ -398,7 +402,7 @@ stages:
             - 10
             - 20
             lr: 0.001
-            lr_scheduler_gamma: 0.5
+            lr_scheduler_gamma: 0.1
             weight_decay: 0.0001
             max_epochs: 30
             monitor:
@@ -406,6 +410,10 @@ stages:
               mode: min
             train_confidence: false
             check_val_every_n_epoch: 5
+            loss_weights:
+              ap: 1.0
+              hemisphere: 1.0
+              rot_frontal: 1.0
         finetune:
           opt:
             weight_decay: 0.001
@@ -415,9 +423,9 @@ stages:
         reg: {}
     outs:
     - path: trained_model/real/logs
-      md5: 416e88cd24f85ccc82a5133d93fc8a8d.dir
-      size: 20977
+      md5: f63b516099f3335a5f90e04a7fd520ba.dir
+      size: 29795
       nfiles: 2
     - path: trained_model/real/model.ckpt
-      md5: 9038a9539e62423a19918ddeddf190cb
-      size: 290427247
+      md5: 72e3462ca6edaabddfcebf6a65ab682e
+      size: 290561967

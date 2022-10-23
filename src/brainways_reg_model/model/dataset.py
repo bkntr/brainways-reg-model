@@ -12,7 +12,11 @@ from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader, Dataset
 
 from brainways_reg_model.utils.config import DataConfig, load_yaml
-from brainways_reg_model.utils.data import value_to_model_label
+from brainways_reg_model.utils.data import (
+    get_augmentation_rotation_deg,
+    model_label_to_value,
+    value_to_model_label,
+)
 
 log = logging.getLogger(__name__)
 
@@ -77,7 +81,7 @@ class BrainwaysDataset(Dataset):
                     value=value, label_params=label_params
                 )
             else:
-                output_labels[label_name] = 0
+                output_labels[label_name] = torch.as_tensor(0)
 
         image = self.images[item]
 
@@ -103,6 +107,17 @@ class BrainwaysDataset(Dataset):
         # augment
         if self.augmentation is not None:
             image = self.augmentation(image[None, ...])[0]
+            augmentation_deg = get_augmentation_rotation_deg(self.augmentation)
+            if output_masks["rot_frontal_mask"]:
+                rot_frontal_value = model_label_to_value(
+                    label=output_labels["rot_frontal"],
+                    label_params=self.label_params["rot_frontal"],
+                )
+                rot_frontal_value += augmentation_deg.item()
+                output_labels["rot_frontal"] = value_to_model_label(
+                    value=rot_frontal_value,
+                    label_params=self.label_params["rot_frontal"],
+                )
 
         output = {"image": image, **output_labels, **output_masks}
 

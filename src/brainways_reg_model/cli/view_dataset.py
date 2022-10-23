@@ -111,10 +111,17 @@ class DatasetViewer:
 
     def change_image(self):
         sample = self.dataset[self.current_idx]
-        image = self.dataset[self.current_idx]["image"].numpy()
+        image = sample["image"].numpy()
         ap = model_label_to_value(
             sample["ap"], label_params=self.dataset.label_params["ap"]
         )
+        if sample["rot_frontal_mask"]:
+            rot_frontal = model_label_to_value(
+                sample["rot_frontal"],
+                label_params=self.dataset.label_params["rot_frontal"],
+            )
+        else:
+            rot_frontal = 0
 
         self.registration_params_widget(
             ap=ap,
@@ -129,7 +136,7 @@ class DatasetViewer:
             ap=ap,
             si=self.atlas_volume.shape[1] / 2,
             lr=self.atlas_volume.shape[2] / 2,
-            rot_frontal=0,
+            rot_frontal=rot_frontal,
             rot_horizontal=0,
             rot_sagittal=0,
         ).numpy()

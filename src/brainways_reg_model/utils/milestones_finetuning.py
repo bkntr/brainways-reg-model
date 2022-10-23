@@ -26,7 +26,7 @@ class MilestonesFinetuning(BaseFinetuning):
                 modules=pl_module.feature_extractor[-5:],
                 optimizer=optimizer,
                 train_bn=self.train_bn,
-                initial_denom_lr=1.0,
+                initial_denom_lr=10.0,
             )
 
         elif epoch == self.milestones[1]:
@@ -35,5 +35,5 @@ class MilestonesFinetuning(BaseFinetuning):
                 modules=pl_module.feature_extractor[:-5],
                 optimizer=optimizer,
                 train_bn=self.train_bn,
-                initial_denom_lr=1.0,
+                initial_denom_lr=10.0,
             )

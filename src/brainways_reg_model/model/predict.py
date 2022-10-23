@@ -11,6 +11,7 @@ from bg_atlasapi import BrainGlobeAtlas
 from magicgui import magicgui
 
 from brainways_reg_model.model.model import BrainwaysRegModel
+from brainways_reg_model.utils.image import slice_contrast_values
 from brainways_reg_model.utils.paths import REAL_DATA_ROOT, REAL_TRAINED_MODEL_ROOT
 from brainways_reg_model.utils.slice_atlas import slice_atlas
 
@@ -57,6 +58,13 @@ class RegistrationAnnotator:
                 "label": "Anterior-Posterior",
                 "widget_type": "FloatSlider",
                 "max": self.atlas.shape[0] - 1,
+                "enabled": False,
+            },
+            rot_frontal={
+                "label": "Frontal Rotation",
+                "widget_type": "FloatSlider",
+                "min": -30,
+                "max": 30,
                 "enabled": False,
             },
             rot_horizontal={
@@ -111,6 +119,7 @@ class RegistrationAnnotator:
     def registration_params(
         self,
         ap: float,
+        rot_frontal: float,
         rot_horizontal: float,
         hemisphere: str,
         confidence: float,
@@ -134,6 +143,7 @@ class RegistrationAnnotator:
 
         self.registration_params_widget(
             ap=params.ap,
+            rot_frontal=params.rot_frontal,
             rot_horizontal=params.rot_horizontal,
             hemisphere=params.hemisphere,
             confidence=params.confidence,
@@ -145,14 +155,14 @@ class RegistrationAnnotator:
             ap=params.ap,
             si=self.atlas_volume.shape[1] / 2,
             lr=self.atlas_volume.shape[2] / 2,
-            rot_frontal=0,
+            rot_frontal=params.rot_frontal,
             rot_horizontal=params.rot_horizontal,
             rot_sagittal=0,
         ).numpy()
 
         self.input_layer.data = np.array(image)
         self.input_layer.reset_contrast_limits_range()
-        self.input_layer.reset_contrast_limits()
+        self.input_layer.contrast_limits = slice_contrast_values(self.input_layer.data)
         self.atlas_slice_layer.data = atlas_slice
         self.atlas_slice_layer.reset_contrast_limits_range()
         self.atlas_slice_layer.reset_contrast_limits()
