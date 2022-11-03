@@ -204,11 +204,11 @@ stages:
       md5: 952b08b4ad57ee43039436a876b5b0f8
       size: 2219
     - path: trained_model/synth/model.ckpt
-      md5: 191dce0f74ff278ad0c1de598dd639ea
-      size: 290559407
+      md5: a8b0940d5588b3a98439e9a5f6fb2f64
+      size: 102393323
     outs:
     - path: trained_model/synth/scores.json
-      md5: 06c85e02f44af316524d6a2697fe52e2
+      md5: 7a1d4ecfe2d251f8f0a47179b7741b91
       size: 224
   eval-finetune:
     cmd: brainways-reg-model evaluate
@@ -217,12 +217,12 @@ stages:
       md5: 952b08b4ad57ee43039436a876b5b0f8
       size: 2219
     - path: trained_model/real/model.ckpt
-      md5: 72e3462ca6edaabddfcebf6a65ab682e
+      md5: e2b1a487a0d337c9df3d4ddb85bf72ee
       size: 290561967
     outs:
     - path: trained_model/real/scores.json
-      md5: dafbdd76ec8b9b0e49149ce87950b2d9
-      size: 552
+      md5: 2ea0859a30caba466bc5ca4f91bd9c53
+      size: 554
   train-synth:
     cmd: brainways-reg-model train --config reg --train-data data/synth.zip --output
       trained_model/synth
@@ -234,18 +234,18 @@ stages:
       md5: 6318577a216c85d2fb9ed36860092172
       size: 698700770
     - path: src/brainways_reg_model/model/dataset.py
-      md5: 5b9bfe1de83bcc226628b04ad5986171
-      size: 6674
+      md5: b1aabf557186a5b4756a407eb6c6be12
+      size: 6677
     - path: src/brainways_reg_model/model/model.py
-      md5: fe6d90524b5d178f1c6498978c89acf4
-      size: 14963
+      md5: c0af81088d971c4493359ea64dd2657c
+      size: 14913
     - path: src/brainways_reg_model/model/train.py
       md5: 405ee91300cdb8da667fa54a3942b85d
       size: 4839
     params:
       params.yaml:
         default:
-          seed: 1111
+          seed: 1234
           model:
             backbone: resnet50
             outputs:
@@ -317,12 +317,12 @@ stages:
         reg: {}
     outs:
     - path: trained_model/synth/logs
-      md5: 563bc32b0937b35d5cd7fcaafe67223c.dir
+      md5: 4a6b03860fb61071ef137ac7a71f8e82.dir
       size: 25497
       nfiles: 2
     - path: trained_model/synth/model.ckpt
-      md5: 191dce0f74ff278ad0c1de598dd639ea
-      size: 290559407
+      md5: a8b0940d5588b3a98439e9a5f6fb2f64
+      size: 102393323
   train-real:
     cmd: brainways-reg-model train --config finetune --train-data data/real.zip --output
       trained_model/real --pretrained-checkpoint trained_model/synth/model.ckpt
@@ -331,21 +331,21 @@ stages:
       md5: 8e4985d279ece59439bafc39d8c936b6
       size: 2163335821
     - path: src/brainways_reg_model/model/dataset.py
-      md5: 5b9bfe1de83bcc226628b04ad5986171
-      size: 6674
+      md5: b1aabf557186a5b4756a407eb6c6be12
+      size: 6677
     - path: src/brainways_reg_model/model/model.py
-      md5: fe6d90524b5d178f1c6498978c89acf4
-      size: 14963
+      md5: c0af81088d971c4493359ea64dd2657c
+      size: 14913
     - path: src/brainways_reg_model/model/train.py
       md5: 405ee91300cdb8da667fa54a3942b85d
       size: 4839
     - path: trained_model/synth/model.ckpt
-      md5: 191dce0f74ff278ad0c1de598dd639ea
-      size: 290559407
+      md5: a8b0940d5588b3a98439e9a5f6fb2f64
+      size: 102393323
     params:
       params.yaml:
         default:
-          seed: 1111
+          seed: 1234
           model:
             backbone: resnet50
             outputs:
@@ -423,9 +423,9 @@ stages:
         reg: {}
     outs:
     - path: trained_model/real/logs
-      md5: f63b516099f3335a5f90e04a7fd520ba.dir
+      md5: 735fd8a0058c23673807ff554e9011ae.dir
       size: 29795
       nfiles: 2
     - path: trained_model/real/model.ckpt
-      md5: 72e3462ca6edaabddfcebf6a65ab682e
+      md5: e2b1a487a0d337c9df3d4ddb85bf72ee
       size: 290561967
