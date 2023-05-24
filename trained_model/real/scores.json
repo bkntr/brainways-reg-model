@@ -1,1 +1,15 @@
-{"test_ap_acc_10": 0.5636703968048096, "test_ap_acc_10_confident": 0.5441703200340271, "test_ap_acc_20": 0.8034090399742126, "test_ap_acc_20_confident": 0.8620827794075012, "test_ap_mae": 13.988486289978027, "test_ap_mae_confident": 14.469501495361328, "test_confidence_acc": 0.7795427441596985, "test_confident_percent": 0.43008702993392944, "test_hem_acc": 0.8872759342193604, "test_hem_acc_confident": 0.8838263154029846, "test_rot_frontal_acc": 0.6288615465164185, "test_rot_frontal_acc_confident": 0.6588268280029297, "test_loss": 2.496490478515625}
+{
+    "test_ap_acc_10": 0.5636703968048096,
+    "test_ap_acc_10_confident": 0.6028029918670654,
+    "test_ap_acc_20": 0.8060718178749084,
+    "test_ap_acc_20_confident": 0.850165069103241,
+    "test_ap_mae": 13.93567180633545,
+    "test_ap_mae_confident": 12.762771606445312,
+    "test_confidence_acc": 0.7822055220603943,
+    "test_confident_percent": 0.7507281303405762,
+    "test_hem_acc": 0.8872759342193604,
+    "test_hem_acc_confident": 0.8945285081863403,
+    "test_rot_frontal_acc": 0.6288615465164185,
+    "test_rot_frontal_acc_confident": 0.6521379947662354,
+    "test_loss": 2.495704412460327
+}

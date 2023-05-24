@@ -302,7 +302,7 @@ class BrainwaysRegModel(pl.LightningModule):
 
     def confident_mask(self, confidence_logits: Tensor):
         confidence_prob = torch.softmax(confidence_logits, dim=-1)[:, 1]
-        confident_mask = confidence_prob > 0.9  # TODO: from config
+        confident_mask = confidence_prob > 0.85  # TODO: from config
         return confident_mask
 
     def confidence_loss_and_label(
