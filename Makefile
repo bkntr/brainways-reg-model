@@ -48,9 +48,9 @@ clean-test: ## remove test and coverage artifacts
 	rm -fr .pytest_cache
 
 lint/flake8: ## check style with flake8
-	flake8 brainways_reg_model tests
+	flake8 --ignore=E203,W503 --max-line-length 88 src tests
 lint/black: ## check style with black
-	black --check brainways_reg_model tests
+	black --check src tests
 
 lint: lint/flake8 lint/black ## check style
 
@@ -69,7 +69,7 @@ coverage: ## check code coverage quickly with the default Python
 docs: ## generate Sphinx HTML documentation, including API docs
 	rm -f docs/brainways_reg_model.rst
 	rm -f docs/modules.rst
-	sphinx-apidoc -o docs/ brainways_reg_model
+	sphinx-apidoc -o docs/ src/brainways_reg_model
 	$(MAKE) -C docs clean
 	$(MAKE) -C docs html
 	$(BROWSER) docs/_build/html/index.html

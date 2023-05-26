@@ -1,6 +1,7 @@
 import pytest
-from duracell.utils.config import LabelParams
-from duracell.utils.data import model_label_to_value, value_to_model_label
+
+from brainways_reg_model.utils.config import LabelParams
+from brainways_reg_model.utils.data import model_label_to_value, value_to_model_label
 
 
 @pytest.mark.parametrize(

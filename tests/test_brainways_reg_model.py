@@ -3,11 +3,9 @@
 """Tests for `brainways_reg_model` package."""
 
 import pytest
-
 from click.testing import CliRunner
 
-from brainways_reg_model import brainways_reg_model
-from brainways_reg_model import cli
+from brainways_reg_model.cli import cli
 
 
 @pytest.fixture
@@ -29,9 +27,9 @@ def test_content(response):
 def test_command_line_interface():
     """Test the CLI."""
     runner = CliRunner()
-    result = runner.invoke(cli.main)
+    result = runner.invoke(cli.cli)
     assert result.exit_code == 0
-    assert 'brainways_reg_model.cli.main' in result.output
-    help_result = runner.invoke(cli.main, ['--help'])
+    assert "cli" in result.output
+    help_result = runner.invoke(cli.cli, ["--help"])
     assert help_result.exit_code == 0
-    assert '--help  Show this message and exit.' in help_result.output
+    assert "--help  Show this message and exit." in help_result.output
