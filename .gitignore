@@ -108,3 +108,4 @@ ENV/
 # project data
 data/
 lightning_logs/
+src/brainways_reg_model/_version.py
