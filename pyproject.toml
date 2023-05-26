@@ -1,7 +1,10 @@
-[build-system]
-requires = ["setuptools>=42.0.0", "wheel", "setuptools_scm"]
-build-backend = "setuptools.build_meta"
+[project]
+name = "brainways-reg-model"
+dynamic = ["version"]
 
+[build-system]
+requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
 write_to = "src/brainways_reg_model/_version.py"
