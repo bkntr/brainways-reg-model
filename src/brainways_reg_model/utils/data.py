@@ -45,6 +45,15 @@ def model_label_to_value(label: Any, label_params: LabelParams):
 def get_augmentation_rotation_deg(
     augmentation: kornia.augmentation.AugmentationBase2D,
 ) -> torch.Tensor:
+    if (
+        augmentation._transform_matrix is None
+        and len(augmentation._transform_matrices) != 0
+    ):
+        augmentation._transform_matrix = augmentation._transform_matrices[0]
+        for mat in augmentation._transform_matrices[1:]:
+            if mat is not None:
+                augmentation._update_transform_matrix(mat)
+
     mat = augmentation.transform_matrix
     return kornia.geometry.rad2deg(
         torch.as_tensor(torch.atan(mat[:, 1, 0] / mat[:, 0, 0]))

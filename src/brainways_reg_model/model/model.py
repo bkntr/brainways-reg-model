@@ -11,6 +11,7 @@ from torch import Tensor, nn, optim
 from torch.nn import functional as F
 from torchmetrics import Accuracy, MeanAbsoluteError, MetricCollection
 from torchvision import models, transforms
+from torchvision.models.resnet import ResNet50_Weights
 
 from brainways_reg_model.model.approx_acc import ApproxAccuracy
 from brainways_reg_model.model.atlas_registration_params import AtlasRegistrationParams
@@ -53,7 +54,7 @@ class BrainwaysRegModel(pl.LightningModule):
             + postfix: MetricDictInputWrapper(
                 Accuracy(
                     num_classes=self.label_params["hemisphere"].n_classes,
-                    multiclass=True,
+                    task="multiclass",
                 ),
                 "hemisphere" + postfix,
             ),
@@ -85,7 +86,7 @@ class BrainwaysRegModel(pl.LightningModule):
 
         # 1. Load pre-trained network:
         model_func = getattr(models, self.config.model.backbone)
-        backbone = model_func(pretrained=True)
+        backbone = model_func(weights=ResNet50_Weights.DEFAULT)
 
         _layers = list(backbone.children())[:-1]
         self.feature_extractor = nn.Sequential(*_layers)

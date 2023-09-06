@@ -14,11 +14,7 @@ class MilestonesFinetuning(BaseFinetuning):
             param.requires_grad = False
 
     def finetune_function(
-        self,
-        pl_module: pl.LightningModule,
-        epoch: int,
-        optimizer: Optimizer,
-        opt_idx: int,
+        self, pl_module: pl.LightningModule, epoch: int, optimizer: Optimizer
     ):
         if epoch == self.milestones[0]:
             # unfreeze 5 last layers
