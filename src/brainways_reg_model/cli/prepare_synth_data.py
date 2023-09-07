@@ -55,7 +55,7 @@ def create_dataset(
             rot_sagittal_limit=rot_sagittal_limit,
         ),
         batch_size=None,
-        num_workers=16 if not debug else 1,
+        num_workers=16 if not debug else 0,
         worker_init_fn=pl_worker_init_function,
     )
     all_labels = []

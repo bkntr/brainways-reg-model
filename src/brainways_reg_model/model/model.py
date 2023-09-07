@@ -70,10 +70,14 @@ class BrainwaysRegModel(pl.LightningModule):
         if self.config.opt.train_confidence:
             metrics.update(self._build_metrics_base(postfix="_confident"))
             if "valid" in self.config.model.outputs:
-                metrics["valid_acc"] = MetricDictInputWrapper(Accuracy(), "valid")
-            metrics["confidence_acc"] = MetricDictInputWrapper(Accuracy(), "confidence")
+                metrics["valid_acc"] = MetricDictInputWrapper(
+                    Accuracy(task="binary"), "valid"
+                )
+            metrics["confidence_acc"] = MetricDictInputWrapper(
+                Accuracy(task="binary"), "confidence"
+            )
             metrics["confident_percent"] = MetricDictInputWrapper(
-                Accuracy(), "confident_percent"
+                Accuracy(task="binary"), "confident_percent"
             )
         metrics = MetricCollection(metrics)
 
@@ -121,6 +125,7 @@ class BrainwaysRegModel(pl.LightningModule):
                 :, out_i : self.label_params[output_name].n_classes
             ]
         confidence = x[:, -2:]
+        confidence = torch.softmax(confidence, dim=-1)[:, 1]
         return outputs, confidence
 
     def predict(
@@ -150,7 +155,7 @@ class BrainwaysRegModel(pl.LightningModule):
             )
             for output_name in logits
         }
-        confidence = torch.softmax(confidence, dim=-1)[:, 1].tolist()
+        confidence = confidence.tolist()
 
         # Dict[List] -> List[Dict]
         list_of_dicts = [
@@ -183,7 +188,7 @@ class BrainwaysRegModel(pl.LightningModule):
                 self.add_augmentation_rotation_to_label(batch)
             else:
                 image = self.transform(batch["image"])
-        y_logits, confidence_logits = self(image)
+        y_logits, confidence = self(image)
 
         # mask out irrelevant outputs
         for output_name in self.config.model.outputs:
@@ -224,11 +229,11 @@ class BrainwaysRegModel(pl.LightningModule):
                         output_name=output_name,
                         batch=batch,
                         y_logits=y_logits,
-                        confidence_logits=confidence_logits,
+                        confidence=confidence,
                     )
         if self.config.opt.train_confidence:
             pred_values["confident_percent"] = self.confident_mask(
-                confidence_logits[batch["ap_mask"]]
+                confidence[batch["ap_mask"]]
             )
             gt_values["confident_percent"] = torch.ones_like(
                 pred_values["confident_percent"]
@@ -236,7 +241,7 @@ class BrainwaysRegModel(pl.LightningModule):
 
         # confidence loss
         if self.config.opt.train_confidence:
-            confidence_on_ap = confidence_logits[batch["ap_mask"]]
+            confidence_on_ap = confidence[batch["ap_mask"]]
             confidence_loss, confidence_label = self.confidence_loss_and_label(
                 batch, y_logits, confidence_on_ap
             )
@@ -273,10 +278,10 @@ class BrainwaysRegModel(pl.LightningModule):
         output_name: str,
         batch: Dict[str, Tensor],
         y_logits: Dict[str, Tensor],
-        confidence_logits: Tensor,
+        confidence: Tensor,
     ):
         output_mask = batch[output_name + "_mask"]
-        confident_mask = self.confident_mask(confidence_logits[output_mask])
+        confident_mask = self.confident_mask(confidence[output_mask])
         pred = model_label_to_value(
             label=torch.argmax(y_logits[output_name][confident_mask], dim=-1),
             label_params=self.label_params[output_name],
@@ -294,16 +299,15 @@ class BrainwaysRegModel(pl.LightningModule):
                         label=self.label_params[output_name].n_classes - 1,
                         label_params=self.label_params[output_name],
                     ),
-                    device=confidence_logits.device,
+                    device=confidence.device,
                     dtype=pred.dtype,
                 ),
-                torch.zeros([1], device=confidence_logits.device, dtype=torch.long),
+                torch.zeros([1], device=confidence.device, dtype=torch.long),
             )
         return pred, label
 
-    def confident_mask(self, confidence_logits: Tensor):
-        confidence_prob = torch.softmax(confidence_logits, dim=-1)[:, 1]
-        confident_mask = confidence_prob > 0.85  # TODO: from config
+    def confident_mask(self, confidence: Tensor):
+        confident_mask = confidence > 0.85  # TODO: from config
         return confident_mask
 
     def confidence_loss_and_label(
@@ -321,7 +325,7 @@ class BrainwaysRegModel(pl.LightningModule):
             confidence_label = (abs(gt_ap - pred_ap) < 20).int()
 
         confidence_loss = self.loss_func(
-            input=F.log_softmax(confidence, dim=-1),
+            input=torch.log(confidence),
             target=confidence_label.long(),
         )
         return confidence_loss, confidence_label

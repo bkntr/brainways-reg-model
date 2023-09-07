@@ -51,7 +51,7 @@ from brainways_reg_model.model.dataset import BrainwaysDataModule
 from brainways_reg_model.model.model import BrainwaysRegModel
 from brainways_reg_model.utils.config import load_config
 from brainways_reg_model.utils.milestones_finetuning import MilestonesFinetuning
-from brainways_reg_model.utils.paths import REAL_DATA_ZIP_PATH
+from brainways_reg_model.utils.paths import REAL_DATA_ZIP_PATH_MICE
 
 log = logging.getLogger(__name__)
 
@@ -105,8 +105,8 @@ def train(
     datamodule = BrainwaysDataModule(
         data_paths={
             "train": train_data_path,
-            "val": REAL_DATA_ZIP_PATH,
-            "test": REAL_DATA_ZIP_PATH,
+            "val": REAL_DATA_ZIP_PATH_MICE,
+            "test": REAL_DATA_ZIP_PATH_MICE,
         },
         data_config=config.data,
         num_workers=num_workers,

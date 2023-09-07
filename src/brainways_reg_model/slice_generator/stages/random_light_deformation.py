@@ -26,9 +26,7 @@ class RandomLightDeformation:
         noise = torch.rand(B, 2, H, W) * 2 - 1
 
         # Get Gaussian kernel for 'y' and 'x' displacement
-        kernel: torch.Tensor = get_gaussian_kernel2d(kernel_size, (sigma[0], sigma[0]))[
-            None
-        ]
+        kernel: torch.Tensor = get_gaussian_kernel2d(kernel_size, (sigma[0], sigma[0]))
 
         # Convolve over a random displacement matrix and scale them with 'alpha'
         disp: torch.Tensor = noise[:, :1]

@@ -5,15 +5,15 @@ default:
     outputs: [ ap, hemisphere, rot_frontal ]
   data:
     atlas:
-      name: whs_sd_rat_39um
+      name: allen_mouse_25um
       brainglobe: true
-      exclude_regions: [ 76, 42, 41 ]
+      exclude_regions: [ ]
     image_size: [ 128, 128 ]
     batch_size: 128
     label_params:
       ap:
-        n_classes: 512
-        limits: [ 122, 799 ]
+        n_classes: 528
+        limits: [ 0, 527 ]
       rot_frontal:
         n_classes: 45
         limits: [ -45, 45 ]
@@ -35,7 +35,7 @@ default:
     lr: 0.001
     lr_scheduler_gamma: 0.1
     weight_decay: 0.0001
-    max_epochs: 30
+    max_epochs: 100
     monitor:
       metric: val_ap_mae
       mode: min
@@ -59,14 +59,23 @@ finetune:
     train_confidence: true
     check_val_every_n_epoch: 10
 
+finetune-mice:
+  data:
+    atlas:
+      name: allen_mouse_25um
+      brainglobe: true
+      exclude_regions: [ ]
+    label_params:
+      ap:
+        n_classes: 528
+        limits: [ 0, 527 ]
+
 synth:
   train: 20000
   val: 1000
   test: 2000
   stages:
     - to_kornia
-    - filter_regions:
-        exclude: [ 76, 42, 41 ]
     - crop_material_area
     - adjust_contrast
     - resize

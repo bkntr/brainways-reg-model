@@ -7,7 +7,10 @@ import pytorch_lightning as pl
 from brainways_reg_model.model.model import BrainwaysRegModel
 from brainways_reg_model.model.train import BrainwaysDataModule
 from brainways_reg_model.utils.config import load_config
-from brainways_reg_model.utils.paths import REAL_DATA_ZIP_PATH, REAL_TRAINED_MODEL_ROOT
+from brainways_reg_model.utils.paths import (
+    REAL_DATA_ZIP_PATH_MICE,
+    REAL_TRAINED_MODEL_ROOT,
+)
 
 
 @click.command()
@@ -50,9 +53,9 @@ def evaluate(checkpoint: Path, output: Path, config: str, num_workers: int):
 
     real_datamodule = BrainwaysDataModule(
         data_paths={
-            "train": REAL_DATA_ZIP_PATH,
-            "val": REAL_DATA_ZIP_PATH,
-            "test": REAL_DATA_ZIP_PATH,
+            "train": REAL_DATA_ZIP_PATH_MICE,
+            "val": REAL_DATA_ZIP_PATH_MICE,
+            "test": REAL_DATA_ZIP_PATH_MICE,
         },
         data_config=config.data,
         num_workers=num_workers,

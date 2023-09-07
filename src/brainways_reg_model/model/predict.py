@@ -12,7 +12,7 @@ from magicgui import magicgui
 
 from brainways_reg_model.model.model import BrainwaysRegModel
 from brainways_reg_model.utils.image import slice_contrast_values
-from brainways_reg_model.utils.paths import REAL_DATA_ROOT, REAL_TRAINED_MODEL_ROOT
+from brainways_reg_model.utils.paths import REAL_DATA_ROOT, REAL_TRAINED_MODEL_ROOT_MICE
 from brainways_reg_model.utils.slice_atlas import slice_atlas
 
 
@@ -29,7 +29,7 @@ class RegistrationAnnotator:
 
         self.viewer = napari.Viewer()
         self.model = BrainwaysRegModel.load_from_checkpoint(
-            REAL_TRAINED_MODEL_ROOT / "model.ckpt"
+            REAL_TRAINED_MODEL_ROOT_MICE / "model.ckpt"
         )
         self.model.freeze()
         self.atlas = BrainGlobeAtlas(self.model.config.data.atlas.name)
